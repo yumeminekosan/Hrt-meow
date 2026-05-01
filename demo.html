@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PK Engine Demo</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; background: #f5f5f5; }
+  h1 { color: #333; }
+  .card { background: #fff; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  label { display: block; margin: 0.5rem 0 0.25rem; font-weight: 600; }
+  input, select { padding: 0.4rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
+  button { background: #2563eb; color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 4px; cursor: pointer; font-size: 1rem; margin-top: 1rem; }
+  button:hover { background: #1d4ed8; }
+  canvas { width: 100%; height: 400px; background: #fafafa; border-radius: 4px; margin-top: 1rem; }
+  .params { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.5rem; }
+  .param-group { display: flex; flex-direction: column; }
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.4rem; border-bottom: 1px solid #eee; }
+  th { color: #666; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>PK Engine Demo</h1>
+
+<div class="card">
+  <label>模型类型</label>
+  <select id="modelType">
+    <option value="iv">一房室 IV (静脉注射)</option>
+    <option value="oral">一房室 Oral (口服)</option>
+  </select>
+
+  <div class="params" style="margin-top:0.5rem;">
+    <div class="param-group">
+      <label>CL (L/h)</label>
+      <input id="CL" type="number" value="2" step="0.1">
+    </div>
+    <div class="param-group">
+      <label>Vd (L)</label>
+      <input id="Vd" type="number" value="50" step="1">
+    </div>
+    <div class="param-group">
+      <label>Dose (mg)</label>
+      <input id="dose" type="number" value="10" step="1">
+    </div>
+    <div class="param-group" id="kaGroup" style="display:none;">
+      <label>ka (1/h)</label>
+      <input id="ka" type="number" value="1" step="0.1">
+    </div>
+    <div class="param-group" id="FGroup" style="display:none;">
+      <label>F (bioavailability)</label>
+      <input id="F" type="number" value="1" step="0.05" min="0" max="1">
+    </div>
+    <div class="param-group">
+      <label>模拟时长 (h)</label>
+      <input id="tEnd" type="number" value="24" step="1">
+    </div>
+    <div class="param-group">
+      <label>步长 (h)</label>
+      <input id="dt" type="number" value="0.5" step="0.1">
+    </div>
+  </div>
+
+  <button onclick="run()">运行模拟</button>
+</div>
+
+<div class="card">
+  <canvas id="chart"></canvas>
+</div>
+
+<div class="card">
+  <h3>数据点 (前20个)</h3>
+  <table id="dataTable">
+    <thead><tr><th>t (h)</th><th>Concentration</th><th>A_depot</th><th>A_central</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+// 简化的 Euler-Maruyama 求解器 (sigma=0, 纯确定性)
+function simulateIV(CL, Vd, dose_mg, tEnd, dt) {
+  const ke = CL / Vd;
+  const doseUg = dose_mg * 1000;
+  const steps = Math.ceil(tEnd / dt);
+  const results = [];
+  let A_central = doseUg;
+  for (let i = 0; i <= steps; i++) {
+    const t = i * dt;
+    results.push({ t, A_depot: 0, A_central, conc: A_central / Vd });
+    A_central = Math.max(0, A_central - ke * A_central * dt);
+  }
+  return results;
+}
+
+function simulateOral(ka, CL, Vd, F, dose_mg, tEnd, dt) {
+  const ke = CL / Vd;
+  const doseAbs = dose_mg * 1000 * F;
+  const steps = Math.ceil(tEnd / dt);
+  const results = [];
+  let A_depot = doseAbs;
+  let A_central = 0;
+  for (let i = 0; i <= steps; i++) {
+    const t = i * dt;
+    results.push({ t, A_depot, A_central, conc: A_central / Vd });
+    const absorption = ka * A_depot;
+    const dAd = -absorption * dt;
+    const dAc = (absorption - ke * A_central) * dt;
+    A_depot = Math.max(0, A_depot + dAd);
+    A_central = Math.max(0, A_central + dAc);
+  }
+  return results;
+}
+
+function run() {
+  const type = document.getElementById('modelType').value;
+  const CL = parseFloat(document.getElementById('CL').value);
+  const Vd = parseFloat(document.getElementById('Vd').value);
+  const dose = parseFloat(document.getElementById('dose').value);
+  const tEnd = parseFloat(document.getElementById('tEnd').value);
+  const dt = parseFloat(document.getElementById('dt').value);
+
+  let data;
+  if (type === 'iv') {
+    data = simulateIV(CL, Vd, dose, tEnd, dt);
+  } else {
+    const ka = parseFloat(document.getElementById('ka').value);
+    const F = parseFloat(document.getElementById('F').value);
+    data = simulateOral(ka, CL, Vd, F, dose, tEnd, dt);
+  }
+
+  drawChart(data, type);
+  fillTable(data);
+}
+
+function drawChart(data, type) {
+  const canvas = document.getElementById('chart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  const w = rect.width, h = rect.height;
+  const pad = { top: 30, right: 30, bottom: 40, left: 50 };
+  const gw = w - pad.left - pad.right;
+  const gh = h - pad.top - pad.bottom;
+
+  const maxT = data[data.length - 1].t;
+  const maxConc = Math.max(...data.map(d => d.conc)) * 1.1;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#fafafa';
+  ctx.fillRect(0, 0, w, h);
+
+  // grid
+  ctx.strokeStyle = '#e5e5e5';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.top + (gh * i / 5);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+    const x = pad.left + (gw * i / 5);
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, h - pad.bottom); ctx.stroke();
+  }
+
+  // axes
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pad.left, pad.top); ctx.lineTo(pad.left, h - pad.bottom); ctx.lineTo(w - pad.right, h - pad.bottom); ctx.stroke();
+
+  // labels
+  ctx.fillStyle = '#666';
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= 5; i++) {
+    const x = pad.left + (gw * i / 5);
+    ctx.fillText((maxT * i / 5).toFixed(1) + 'h', x, h - pad.bottom + 18);
+  }
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 5; i++) {
+    const y = h - pad.bottom - (gh * i / 5);
+    ctx.fillText((maxConc * i / 5).toFixed(1), pad.left - 8, y + 4);
+  }
+  ctx.save();
+  ctx.translate(15, h / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('Concentration (µg/L)', 0, 0);
+  ctx.restore();
+  ctx.fillText('Time (h)', w / 2, h - 5);
+
+  // concentration curve
+  ctx.strokeStyle = '#2563eb';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  data.forEach((d, i) => {
+    const x = pad.left + (d.t / maxT) * gw;
+    const y = h - pad.bottom - (d.conc / maxConc) * gh;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // A_central (mass) dashed
+  ctx.strokeStyle = '#16a34a';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  const maxMass = Math.max(...data.map(d => d.A_central)) * 1.1;
+  data.forEach((d, i) => {
+    const x = pad.left + (d.t / maxT) * gw;
+    const y = h - pad.bottom - (d.A_central / maxMass) * gh;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // legend
+  ctx.fillStyle = '#2563eb'; ctx.fillRect(w - pad.right - 100, pad.top, 12, 12);
+  ctx.fillStyle = '#333'; ctx.textAlign = 'left'; ctx.fillText('Concentration', w - pad.right - 84, pad.top + 10);
+  ctx.fillStyle = '#16a34a'; ctx.fillRect(w - pad.right - 100, pad.top + 20, 12, 12);
+  ctx.fillStyle = '#333'; ctx.fillText('A_central', w - pad.right - 84, pad.top + 30);
+}
+
+function fillTable(data) {
+  const tbody = document.querySelector('#dataTable tbody');
+  tbody.innerHTML = '';
+  data.slice(0, 20).forEach(d => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${d.t.toFixed(2)}</td><td>${d.conc.toFixed(4)}</td><td>${d.A_depot.toFixed(2)}</td><td>${d.A_central.toFixed(2)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// toggle oral params
+document.getElementById('modelType').addEventListener('change', (e) => {
+  const oral = e.target.value === 'oral';
+  document.getElementById('kaGroup').style.display = oral ? 'flex' : 'none';
+  document.getElementById('FGroup').style.display = oral ? 'flex' : 'none';
+});
+
+// initial run
+run();
+</script>
+</body>
+</html>
