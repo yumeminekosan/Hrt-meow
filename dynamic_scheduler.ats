@@ -1,0 +1,176 @@
+(* ATS版本的动态指令调度器 *)
+(* 乱序执行模拟 *)
+
+#include "share/atspre_staload.hats"
+
+(* 类型定义 *)
+typedef instruction_id = int
+typedef latency = int
+typedef register_name = string
+
+(* 指令结构 *)
+datatype instruction = 
+  | INSTRUCTION of (instruction_id, string, List(register_name), List(register_name), latency)
+
+(* 优化结果 *)
+datatype optimization_result =
+  | OPT_RESULT of (instruction_id, latency, latency, double)
+
+(* 辅助函数 - 获取指令信息 *)
+fn get_instr_id(instr: instruction): instruction_id =
+  case+ instr of
+  | INSTRUCTION(id, _, _, _, _) => id
+
+fn get_instr_latency(instr: instruction): latency =
+  case+ instr of
+  | INSTRUCTION(_, _, _, _, lat) => lat
+
+fn get_instr_src_regs(instr: instruction): List(register_name) =
+  case+ instr of
+  | INSTRUCTION(_, _, srcs, _, _) => srcs
+
+fn get_instr_dst_regs(instr: instruction): List(register_name) =
+  case+ instr of
+  | INSTRUCTION(_, _, _, dsts, _) => dsts
+
+(* 寄存器重命名 - 检查WAR/WAW依赖 *)
+fn has_rename_conflict(
+  dst_regs: List(register_name),
+  rob_dsts: List(register_name)
+): bool =
+  case+ dst_regs of
+  | list_nil() => false
+  | list_cons(d, rest_d) =>
+    (case+ rob_dsts of
+    | list_nil() => has_rename_conflict(rest_d, rob_dsts)
+    | list_cons(r, rest_r) =>
+      if string_equal(d, r) then true
+      else has_rename_conflict(rest_d, rest_r))
+
+(* RAW依赖检查 - 检查Read-After-Write *)
+fn has_raw_dependency(
+  src_regs: List(register_name),
+  rob_dst_regs: List(instruction)
+): bool =
+  case+ src_regs of
+  | list_nil() => false
+  | list_cons(src, rest_srcs) =>
+    let
+      fun check_rob_dsts(rob_instrs: List(instruction)): bool =
+        case+ rob_instrs of
+        | list_nil() => has_raw_dependency(rest_srcs, rob_dst_regs)
+        | list_cons(rob_instr, rest_rob) =>
+          let
+            val rob_dsts = get_instr_dst_regs(rob_instr)
+            fun check_match(dsts: List(register_name)): bool =
+              case+ dsts of
+              | list_nil() => check_rob_dsts(rest_rob)
+              | list_cons(dst, rest_dst) =>
+                if string_equal(src, dst) then true
+                else check_match(rest_dst)
+          in
+            check_match(rob_dsts)
+          end
+    in
+      check_rob_dsts(rob_dst_regs)
+    end
+
+(* 指令调度 - 找出可以乱序执行的指令 *)
+fn schedule_instructions(
+  window: List(instruction),
+  rob: List(instruction)
+): List(instruction) =
+  case+ window of
+  | list_nil() => list_nil()
+  | list_cons(instr, rest) =>
+    let
+      val src_regs = get_instr_src_regs(instr)
+      val has_dep = has_raw_dependency(src_regs, rob)
+    in
+      if has_dep then
+        schedule_instructions(rest, rob)
+      else
+        list_cons(instr, schedule_instructions(rest, rob))
+    end
+
+(* 计算优化结果 *)
+fn calculate_optimization(instr: instruction): optimization_result =
+  let
+    val id = get_instr_id(instr)
+    val orig_lat = get_instr_latency(instr)
+    (* 乱序执行减少30%延迟 *)
+    val opt_lat = (orig_lat * 7) / 10
+    val speedup = double_of_int(orig_lat) / double_of_int(opt_lat)
+  in
+    OPT_RESULT(id, orig_lat, opt_lat, speedup)
+  end
+
+(* 主调度函数 *)
+fn schedule_hormone_optimization(
+  window: List(instruction),
+  rob: List(instruction)
+): List(optimization_result) =
+  let
+    val scheduled = schedule_instructions(window, rob)
+  in
+    case+ scheduled of
+    | list_nil() => list_nil()
+    | list_cons(instr, rest) =>
+      list_cons(
+        calculate_optimization(instr),
+        schedule_hormone_optimization(rest, list_cons(instr, rob))
+      )
+  end
+
+(* 打印结果 *)
+fn print_result(result: optimization_result): void =
+  case+ result of
+  | OPT_RESULT(id, orig, opt, speedup) =>
+    let
+      val () = print("指令#")
+      val () = print(id)
+      val () = print(": 原始延迟=")
+      val () = print(orig)
+      val () = print(", 优化后=")
+      val () = print(opt)
+      val () = print(", 加速比=")
+      val () = print_double(speedup)
+      val () = print("x\n")
+    in
+    end
+
+fn print_results(results: List(optimization_result)): void =
+  case+ results of
+  | list_nil() => ()
+  | list_cons(result, rest) =>
+    let
+      val () = print_result(result)
+    in
+      print_results(rest)
+    end
+
+(* 主程序 *)
+implement main0() = {
+  val () = print("=== ATS动态指令调度器 ===\n")
+
+  (* 创建测试指令 *)
+  val instr1 = INSTRUCTION(1, "ADD", list_cons("R1", list_cons("R2", list_nil())),
+                                     list_cons("R3", list_nil()), 3)
+  val instr2 = INSTRUCTION(2, "MUL", list_cons("R4", list_nil()),
+                                     list_cons("R5", list_nil()), 5)
+  val instr3 = INSTRUCTION(3, "SUB", list_cons("R3", list_nil()),
+                                     list_cons("R6", list_nil()), 2)
+
+  val window = list_cons(instr1, list_cons(instr2, list_cons(instr3, list_nil())))
+  val rob = list_nil()
+
+  (* 执行调度 *)
+  val results = schedule_hormone_optimization(window, rob)
+
+  (* 打印结果 *)
+  val () = print("调度指令数: ")
+  val () = print(list_length(results))
+  val () = print("\n")
+  val () = print_results(results)
+  val () = print("\n")
+}

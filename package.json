@@ -1,14 +1,16 @@
 {
-  "name": "workspace",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "hrt-meow",
+  "version": "0.1.0",
+  "description": "PK/PD engine — one-compartment IV bolus simulation",
+  "main": "dist/packages/engine/src/index.js",
   "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["pharmacokinetics", "pkpd", "simulation"],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "toml": "^4.1.1"
   },

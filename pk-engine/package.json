@@ -1,0 +1,9 @@
+{
+  "name": "pk-engine",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test": "ts-node packages/engine/src/main.ts"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "id": "twitter-warmth-replies",
+      "name": "Twitter温暖回复",
+      "enabled": true,
+      "schedule": {
+        "kind": "cron",
+        "expr": "*/45 * * * *",
+        "tz": "Asia/Shanghai"
+      },
+      "sessionTarget": "isolated",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "agentTurn",
+        "message": "执行Twitter温暖回复任务",
+        "exec": "cd /root/.openclaw/workspace/twitter-warmth && node bot.mjs"
+      },
+      "delivery": {
+        "mode": "silent"
+      }
+    }
+  ]
+}
