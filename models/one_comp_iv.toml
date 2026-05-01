@@ -1,13 +1,8 @@
 [metadata]
-id = "one_comp_iv_basic"
-description = "单次静脉注射，一房室模型"
-assumptions = ["一房室", "一级消除"]
-
-[compartments]
-central.initial_amount = 10.0
+id = "one_comp_iv"
+type = "one_comp_iv"
 
 [parameters]
-CL.value = 2.0
-CL.unit = "L/h"
-Vd.value = 50.0
-Vd.unit = "L"
+CL = 2.0
+Vd = 50.0
+dose_mg = 10.0

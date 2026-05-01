@@ -8,7 +8,11 @@
     "typecheck": "tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["pharmacokinetics", "pkpd", "simulation"],
+  "keywords": [
+    "pharmacokinetics",
+    "pkpd",
+    "simulation"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {

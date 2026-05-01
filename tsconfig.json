@@ -17,6 +17,6 @@
       "module": "CommonJS"
     }
   },
-  "include": ["packages/**/*.ts"],
+  "include": ["packages/**/*.ts", "src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
