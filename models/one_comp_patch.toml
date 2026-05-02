@@ -1,0 +1,33 @@
+[metadata]
+id = "one_comp_patch"
+type = "one_comp_patch"
+
+[parameters]
+[parameters.release_rate]
+value = 100
+unit = "μg/天"
+
+[parameters.duration]
+value = 7
+unit = "天"
+
+[parameters.CL]
+value = 20
+unit = "L/天"
+
+[parameters.Vd]
+value = 200
+unit = "L"
+
+[parameters.F_td]
+value = 0.80
+
+[dosing_protocol]
+type = "single_patch"
+dose_unit = "mg"
+interval_unit = "hours"
+
+[[dosing_protocol.phases]]
+n_doses = 1
+dose_amount = 0
+interval = 0

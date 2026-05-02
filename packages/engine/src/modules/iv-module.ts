@@ -22,6 +22,11 @@ export class IVModule implements IPKModule {
     this.initialConcentration = model.compartments.central.initial_amount / Vd;
   }
 
+  /** 扩散系数: 当前浓度的 15%，只对中央室 */
+  computeDiffusion(_t: number, state: Float64Array): Float64Array {
+    return new Float64Array([state[0] * 0.15]);
+  }
+
   /** 状态向量: [浓度] */
   computeDerivatives(_t: number, state: Float64Array): Float64Array {
     // dC/dt = -ke * C

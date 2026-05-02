@@ -1,0 +1,42 @@
+[metadata]
+id = "one_comp_oral_basic"
+description = "单次口服，一房室模型，一级吸收"
+assumptions = ["一房室", "一级吸收", "一级消除"]
+
+[compartments]
+[compartments.gut]
+initial_amount = 100.0
+
+[compartments.central]
+initial_amount = 0.0
+
+[parameters]
+[parameters.ka]
+value = 1.0
+unit = "1/h"
+
+[parameters.CL]
+value = 2.0
+unit = "L/h"
+
+[parameters.Vd]
+value = 50.0
+unit = "L"
+
+[parameters.F]
+value = 0.5
+
+[dosing_protocol]
+type = "repeated_oral"
+dose_unit = "mg"
+interval_unit = "hours"
+
+[[dosing_protocol.phases]]
+n_doses = 2
+dose_amount = 4.0
+interval = 24.0
+
+[[dosing_protocol.phases]]
+n_doses = 28
+dose_amount = 2.0
+interval = 24.0

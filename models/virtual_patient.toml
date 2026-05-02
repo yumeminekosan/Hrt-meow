@@ -1,0 +1,6 @@
+[patient]
+id = "vp-001"
+
+[shared_params]
+CL = 20
+Vd = 200

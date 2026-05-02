@@ -17,7 +17,7 @@ export interface IPKModule {
 export interface ModuleOutput {
   moduleId: string;
   timestamp: number;
-  predictedValue: number;
+  predictedConcentration: number;
   uncertaintyBand: [number, number];
   assumptionTags: string[];
   sensitivityVector: Record<string, number>;

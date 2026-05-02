@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "description": "PK/PD engine — one-compartment IV bolus simulation",
   "main": "dist/packages/engine/src/index.js",
+  "type": "commonjs",
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "build:browser": "esbuild packages/engine/src/browser-entry.ts --bundle --format=esm --outfile=public/engine-bundle.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -20,6 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "esbuild": "^0.28.0",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }

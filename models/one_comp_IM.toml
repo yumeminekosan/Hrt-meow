@@ -1,0 +1,29 @@
+[metadata]
+id = "one_comp_IM_depot"
+type = "one_comp_im"
+
+[parameters]
+[parameters.ka]
+value = 0.05
+unit = "1/天"
+
+[parameters.CL]
+value = 15
+unit = "L/天"
+
+[parameters.Vd]
+value = 20
+unit = "L"
+
+[parameters.dose_mg]
+value = 10
+
+[dosing_protocol]
+type = "repeated_im"
+dose_unit = "mg"
+interval_unit = "days"
+
+[[dosing_protocol.phases]]
+n_doses = 5
+dose_amount = 10.0
+interval = 7.0

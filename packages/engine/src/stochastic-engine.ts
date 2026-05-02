@@ -1,21 +1,21 @@
 // ============================================================
-// 引擎层 — 确定性欧拉积分器
+// 随机引擎层 — Euler-Maruyama SDE 求解器
 // 与固件完全解耦：引擎只推进状态向量，不关心状态的含义
 // ============================================================
 
-import { IPKModule, SimulationConfig, StepResult, ModuleOutput } from './types/pk-module.interface';
+import { IPKModule, SimulationConfig, ModuleOutput } from './types/pk-module.interface';
+import { eulerMaruyamaStep } from './solvers/euler-maruyama';
 
 /**
- * 通用求解引擎。
- * 接收一个实现了 IPKModule 的固件模块，用欧拉法推进状态。
+ * 随机求解引擎。
+ * 接收一个实现了 IPKModule 的固件模块，用 Euler-Maruyama 推进状态。
  */
-export class Engine {
+export class StochasticEngine {
   constructor(private readonly module: IPKModule) {}
 
   /**
-   * 执行确定性欧拉法模拟。
-   * 每一步: state_{n+1} = state_n + dt * f(t_n, state_n)
-   * 返回 ModuleOutput 数组，包含完整的预测与元数据。
+   * 执行 Euler-Maruyama 模拟。
+   * drift 来自 computeDerivatives，diffusion 来自 computeDiffusion。
    */
   simulate(config: SimulationConfig): ModuleOutput[] {
     const { tEnd, stepSize } = config;
@@ -26,10 +26,7 @@ export class Engine {
 
     for (let i = 0; i <= steps; i++) {
       const t = i * stepSize;
-      const predictedConcentration =
-        typeof (this.module as any).getConcentration === 'function'
-          ? (this.module as any).getConcentration(state)
-          : state[0];
+      const predictedConcentration = state[0];
       const uncertaintyBand: [number, number] = [
         predictedConcentration * 0.95,
         predictedConcentration * 1.05
@@ -45,12 +42,9 @@ export class Engine {
         exceptionFlag: 'normal'
       });
 
-      const derivatives = this.module.computeDerivatives(t, state);
-      const nextState = new Float64Array(state.length);
-      for (let j = 0; j < state.length; j++) {
-        nextState[j] = state[j] + derivatives[j] * stepSize;
-      }
-      state = nextState;
+      const drift = this.module.computeDerivatives(t, state);
+      const diffusion = (this.module as any).computeDiffusion(t, state);
+      state = eulerMaruyamaStep(drift, diffusion, stepSize, state);
     }
 
     return results;
