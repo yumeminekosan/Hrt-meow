@@ -551,18 +551,31 @@ function drawChart(datasets,xLabel,yLabel){
   ctx.save();ctx.translate(14,pad.t+gh/2);ctx.rotate(-Math.PI/2);
   ctx.fillText(yLabel,0,0);ctx.restore();
 
-  // Lines
+  // Lines + dose markers
   const colors=['#22d3ee','#f97316','#818cf8','#34d399'];
   for(let d=0;d<datasets.length;d++){
     const ds=datasets[d];
     ctx.strokeStyle=colors[d%colors.length];
-    ctx.lineWidth=1.5;
+    ctx.lineWidth=2;
     ctx.beginPath();
-    for(let i=0;i<ds.t.length;i++){
+    // Subsample if too many points (>1500)
+    const step=ds.t.length>1500?Math.ceil(ds.t.length/1500):1;
+    for(let i=0;i<ds.t.length;i+=step){
       const x=toX(ds.t[i]),y=toY(ds.c[i]);
       i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
     }
+    // Always include last point
+    const last=ds.t.length-1;
+    ctx.lineTo(toX(ds.t[last]),toY(ds.c[last]));
     ctx.stroke();
+    // Dose markers (dips = dose times)
+    if(ds.doses){
+      ctx.fillStyle=colors[d%colors.length];
+      for(const t of ds.doses){
+        const x=toX(t);
+        ctx.fillRect(x,pad.t,1,gh);
+      }
+    }
   }
 
   // Legend
@@ -617,7 +630,8 @@ function run(){
     const ka=parseFloat(document.getElementById('ka').value);
     const F=parseFloat(document.getElementById('f').value);
     const result=simOral(CL,Vd,ka,F,dose,tEnd,step,freq);
-    drawChart([{t:result.t,c:result.c,label:'E2 (oral)'}],'Time','Concentration (mg/L)');
+    const doses=[];for(let d=0;d<days;d++)doses.push(d*freq);
+    drawChart([{t:result.t,c:result.c,label:'E2 (oral)',doses:doses}],'Time','Concentration (mg/L)');
     calcStats(result.t,result.c,true);
   }
   else if(currentMode==='im'){
@@ -626,7 +640,8 @@ function run(){
     const ke=parseFloat(document.getElementById('cl').value)/Vd;
     const fConv=parseFloat(document.getElementById('fconv').value);
     const result=simEV(ka,Vd,ke,fConv,dose,tEnd,step,freq);
-    drawChart([{t:result.t,c:result.c,label:'E2 (IM EV)'}],'Time','Concentration (mg/L)');
+    const doses=[];for(let d=0;d<days;d++)doses.push(d*freq);
+    drawChart([{t:result.t,c:result.c,label:'E2 (IM EV)',doses:doses}],'Time','Concentration (mg/L)');
     calcStats(result.t,result.c,true);
   }
   else if(currentMode==='ddi'){
@@ -642,9 +657,10 @@ function run(){
     // Without DDI (CPA dose=0)
     const noDDI=simDDI(CL,Vd,ka,F,dose,2.73,340,2.0,0.88,0,Ki,days,freq,step);
 
+    const doses=[];for(let d=0;d<days;d++)doses.push(d*freq);
     drawChart([
-      {t:withDDI.t,c:withDDI.cSub,label:'E2 + CPA'},
-      {t:noDDI.t,c:noDDI.cSub,label:'E2 alone'}
+      {t:withDDI.t,c:withDDI.cSub,label:'E2 + CPA',doses:doses},
+      {t:noDDI.t,c:noDDI.cSub,label:'E2 alone',doses:doses}
     ],'Time','Concentration (mg/L)');
 
     // Stats for DDI case
