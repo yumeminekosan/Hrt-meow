@@ -289,7 +289,7 @@ select{
 <!-- Right: Chart -->
 <div>
   <div class="panel">
-    <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><polyline points="3,17 8,11 13,14 21,5"/><line x1="3" y1="21" x2="3" y2="3"/><line x1="3" y1="21" x2="21" y2="21"/></svg> Concentration–Time Curve</div>
+    <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><polyline points="3,17 8,11 13,14 21,5"/><line x1="3" y1="21" x2="3" y2="3"/><line x1="3" y1="21" x2="21" y2="21"/></svg> Concentration–Time Curve <button class="btn" style="float:right;padding:4px 10px;font-size:0.6rem" onclick="toggleSmooth()" id="smoothBtn">SMOOTH</button></div>
     <canvas id="chart"></canvas>
     <div class="legend" id="legend"></div>
   </div>
@@ -426,7 +426,7 @@ function simEV(kaDepot,VdE2,keE2,fConv,dose,tEnd,step,freq){
   const kh=10,keEV=0.5,VdEV=80;
   const steps=Math.ceil(tEnd/step);
   let depot=0,concE2=0;
-  const t=[],c=[];
+  const t=[],c=[],dep=[];
   let nextDose=0,doseIdx=0;
 
   for(let i=0;i<=steps;i++){
@@ -448,8 +448,9 @@ function simEV(kaDepot,VdE2,keE2,fConv,dose,tEnd,step,freq){
     if(concE2<0)concE2=0;
     t.push(time);
     c.push(concE2);
+    dep.push(depot);
   }
-  return{t,c};
+  return{t,c,dep};
 }
 
 function simDDI(clE2,vdE2,kaE2,fE2,doseE2,cpCL,cpVd,cpka,cpF,cpDose,Ki,days,freq,step){
@@ -551,38 +552,68 @@ function drawChart(datasets,xLabel,yLabel){
   ctx.save();ctx.translate(14,pad.t+gh/2);ctx.rotate(-Math.PI/2);
   ctx.fillText(yLabel,0,0);ctx.restore();
 
-  // Lines + dose markers
-  const colors=['#22d3ee','#f97316','#818cf8','#34d399'];
-  for(let d=0;d<datasets.length;d++){
-    const ds=datasets[d];
-    ctx.strokeStyle=colors[d%colors.length];
-    ctx.lineWidth=2;
-    ctx.beginPath();
-    // Subsample if too many points (>1500)
-    const step=ds.t.length>1500?Math.ceil(ds.t.length/1500):1;
-    for(let i=0;i<ds.t.length;i+=step){
-      const x=toX(ds.t[i]),y=toY(ds.c[i]);
-      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-    }
-    // Always include last point
-    const last=ds.t.length-1;
-    ctx.lineTo(toX(ds.t[last]),toY(ds.c[last]));
-    ctx.stroke();
-    // Dose markers (dips = dose times)
-    if(ds.doses){
-      ctx.fillStyle=colors[d%colors.length];
-      for(const t of ds.doses){
-        const x=toX(t);
-        ctx.fillRect(x,pad.t,1,gh);
+  // ---- Monotone Hermite spline (PCHIP) ----
+  function drawSpline(ctx,ds,toX,toY){
+    const t=ds.t,c=ds.c,n=t.length;
+    if(n<2)return;
+    const dt=new Float64Array(n-1),dc=new Float64Array(n-1),m=new Float64Array(n-1);
+    for(let i=0;i<n-1;i++){dt[i]=t[i+1]-t[i];dc[i]=c[i+1]-c[i];m[i]=dc[i]/dt[i];}
+    const d=new Float64Array(n);
+    d[0]=m[0];d[n-1]=m[n-2];
+    for(let i=1;i<n-1;i++)d[i]=(m[i-1]+m[i])/2;
+    for(let i=0;i<n-1;i++){
+      if(m[i]===0){d[i]=0;d[i+1]=0;}
+      else{
+        const a=d[i]/m[i],b=d[i+1]/m[i];
+        if(a<0)d[i]=0;
+        if(b<0)d[i+1]=0;
+        const s=a*a+b*b;
+        if(s>9){const tau=3/Math.sqrt(s);d[i]=tau*a*m[i];d[i+1]=tau*b*m[i];}
       }
     }
+    ctx.beginPath();ctx.moveTo(toX(t[0]),toY(c[0]));
+    for(let i=0;i<n-1;i++){
+      const x0=toX(t[i]),x1=toX(t[i+1]),y0=toY(c[i]),y1=toY(c[i+1]);
+      const dx=(x1-x0)/3;
+      ctx.bezierCurveTo(x0+dx,y0+toY(0)-toY(d[i]*dt[i]/3),x1-dx,y1+toY(0)-toY(d[i+1]*dt[i]/3),x1,y1);
+    }
+    ctx.stroke();
   }
 
-  // Legend
-  const legendEl=document.getElementById('legend');
-  legendEl.innerHTML=datasets.map((ds,i)=>
-    `<div class="legend-item"><div class="legend-dot" style="background:${colors[i%colors.length]}"></div>${ds.label}</div>`
-  ).join('');
+  // ---- Draw ----
+  let smooth=window._smooth!==undefined?window._smooth:true;
+  function draw(){
+    const ctx=canvas.getContext('2d');
+    const dpr=window.devicePixelRatio||1;
+    canvas.width=canvas.clientWidth*dpr;canvas.height=canvas.clientHeight*dpr;
+    ctx.scale(dpr,dpr);
+    const W=canvas.clientWidth,H=canvas.clientHeight;
+    ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    ctx.fillRect(0,0,W,H);
+    const pad={t:20,r:20,b:40,l:60};
+    const gw=W-pad.l-pad.r,gh=H-pad.t-pad.b;
+    let xMax=0,yMax=0;
+    for(const ds of datasets){const lx=ds.t[ds.t.length-1];if(lx>xMax)xMax=lx;for(const v of ds.c)if(v>yMax)yMax=v;}
+    if(yMax===0)yMax=1;yMax*=1.1;
+    const toX=v=>pad.l+(v/xMax)*gw;
+    const toY=v=>pad.t+gh-(v/yMax)*gh;
+    ctx.strokeStyle='#1e293b';ctx.lineWidth=0.5;
+    for(let i=0;i<=5;i++){const y=pad.t+gh*(i/5);ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();ctx.fillStyle='#475569';ctx.font='10px Space Mono';ctx.textAlign='right';ctx.fillText((yMax*(1-i/5)).toFixed(yMax<0.1?4:yMax<1?3:1),pad.l-8,y+4);}
+    for(let i=0;i<=6;i++){const x=pad.l+gw*(i/6);ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+gh);ctx.stroke();ctx.fillStyle='#475569';ctx.font='10px Space Mono';ctx.textAlign='center';ctx.fillText((xMax*i/6).toFixed(0)+'h',x,H-pad.b+16);}
+    ctx.fillStyle='#64748b';ctx.font='10px Inter';ctx.textAlign='center';ctx.fillText(xLabel,pad.l+gw/2,H-4);
+    ctx.save();ctx.translate(14,pad.t+gh/2);ctx.rotate(-Math.PI/2);ctx.fillText(yLabel,0,0);ctx.restore();
+    const colors=['#22d3ee','#f97316','#818cf8','#34d399'];
+    for(let d=0;d<datasets.length;d++){
+      const ds=datasets[d];ctx.strokeStyle=colors[d%colors.length];ctx.lineWidth=2;
+      if(smooth)drawSpline(ctx,ds,toX,toY);
+      else{ctx.beginPath();for(let i=0;i<ds.t.length;i++){const x=toX(ds.t[i]),y=toY(ds.c[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}ctx.stroke();}
+      if(ds.doses){ctx.globalAlpha=0.15;ctx.strokeStyle=colors[d%colors.length];ctx.lineWidth=1;for(const tt of ds.doses){const x=toX(tt);ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+gh);ctx.stroke();}ctx.globalAlpha=1;}
+    }
+    legendEl.innerHTML=datasets.map((ds,i)=>`<div class="legend-item"><div class="legend-dot" style="background:${colors[i%colors.length]}"></div>${ds.label}</div>`).join('');
+  }
+  window._smooth=smooth;
+  window._redraw=draw;
+  draw();
 }
 
 // --- Stats ---
@@ -616,6 +647,13 @@ function calcStats(t,c,pgPerLiter){
   document.getElementById('statHalf').textContent=halfLife;
 }
 
+// --- Toggle smooth ---
+function toggleSmooth(){
+  window._smooth=!window._smooth;
+  document.getElementById('smoothBtn').textContent=window._smooth?'SMOOTH':'RAW';
+  if(window._redraw)window._redraw();
+}
+
 // --- Run ---
 function run(){
   const dose=parseFloat(document.getElementById('dose').value);
@@ -641,7 +679,14 @@ function run(){
     const fConv=parseFloat(document.getElementById('fconv').value);
     const result=simEV(ka,Vd,ke,fConv,dose,tEnd,step,freq);
     const doses=[];for(let d=0;d<days;d++)doses.push(d*freq);
-    drawChart([{t:result.t,c:result.c,label:'E2 (IM EV)',doses:doses}],'Time','Concentration (mg/L)');
+    // Normalize depot to same scale as E2 for visual comparison
+    const maxE2=Math.max(...result.c)||1;
+    const maxDep=Math.max(...result.dep)||1;
+    const depNorm=result.dep.map(v=>v/maxDep*maxE2);
+    drawChart([
+      {t:result.t,c:result.c,label:'E₂ (mg/L)',doses:doses},
+      {t:result.t,c:depNorm,label:'EV depot (scaled)',doses:doses}
+    ],'Time','Concentration');
     calcStats(result.t,result.c,true);
   }
   else if(currentMode==='ddi'){
