@@ -199,6 +199,11 @@ canvas{
   background:var(--aurora1);color:var(--bg);
 }
 
+/* Icons */
+.icon{display:inline-block;vertical-align:middle;width:16px;height:16px;margin-right:8px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.icon-fill{fill:currentColor;stroke:none}
+.icon-sm{width:12px;height:12px;margin-right:6px}
+
 /* Legend */
 .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
 .legend-item{
@@ -255,11 +260,11 @@ select{
 <!-- Left: Controls -->
 <div>
   <div class="panel" id="paramPanel">
-    <div class="panel-title">⚙ Parameters</div>
+    <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4M4.22 4.22l2.83 2.83m9.9 9.9l2.83 2.83M1 12h4m14 0h4M4.22 19.78l2.83-2.83m9.9-9.9l2.83-2.83"/></svg> Parameters</div>
     <div id="controls"></div>
   </div>
   <div class="panel">
-    <div class="panel-title">💊 Dosing</div>
+    <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="5"/><line x1="7" y1="12" x2="17" y2="12"/></svg> Dosing</div>
     <div class="control-group">
       <div class="control-label">Dose (mg)</div>
       <input type="range" id="dose" min="0.5" max="20" step="0.5" value="2">
@@ -279,13 +284,13 @@ select{
       </select>
     </div>
   </div>
-  <button class="btn" onclick="run()" style="width:100%">▶ Run Simulation</button>
+  <button class="btn" onclick="run()" style="width:100%"><svg class="icon icon-sm" viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21" fill="currentColor" stroke="none"/></svg> Run Simulation</button>
 </div>
 
 <!-- Right: Chart -->
 <div>
   <div class="panel">
-    <div class="panel-title">📊 Concentration–Time Curve</div>
+    <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><polyline points="3,17 8,11 13,14 21,5"/><line x1="3" y1="21" x2="3" y2="3"/><line x1="3" y1="21" x2="21" y2="21"/></svg> Concentration–Time Curve</div>
     <canvas id="chart"></canvas>
     <div class="legend" id="legend"></div>
   </div>
@@ -303,7 +308,7 @@ select{
 
 <!-- Footer -->
 <div class="footer">
-  FJÖRÐUR PK ENGINE — BUILT WITH ❄️ AND 🌋 — GITHUB PAGES DEMO
+  FJÖRÐUR PK ENGINE — BUILT WITH <svg class="icon icon-sm" viewBox="0 0 24 24" style="vertical-align:-2px"><path d="M12 2v20M2 12h20M5.64 5.64l12.73 12.73M18.36 5.64L5.64 18.36M12 2l2 4-2 2-2-2z M12 22l-2-4 2-2 2 2z" stroke-width="1.2"/></svg> AND <svg class="icon icon-sm" viewBox="0 0 24 24" style="vertical-align:-2px"><path d="M12 2C8 2 4 8 4 14h16c0-6-4-12-8-12z" stroke-width="1.2"/><path d="M8 14c0-2 1.5-4 4-4s4 2 4 4" stroke-width="1.2"/><line x1="12" y1="14" x2="12" y2="20" stroke-width="1.2"/></svg> — GITHUB PAGES DEMO
 </div>
 
 </div>
