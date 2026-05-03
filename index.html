@@ -584,6 +584,7 @@ function drawChart(datasets,xLabel,yLabel){
   let smooth=window._smooth!==undefined?window._smooth:true;
   function draw(){
     const ctx=canvas.getContext('2d');
+    const legendEl=document.getElementById('legend');
     const dpr=window.devicePixelRatio||1;
     canvas.width=canvas.clientWidth*dpr;canvas.height=canvas.clientHeight*dpr;
     ctx.scale(dpr,dpr);
