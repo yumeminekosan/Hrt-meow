@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FJÖRÐUR — Pharmacokinetic Simulation Engine</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --bg:#0a0e17;
+  --surface:#111827;
+  --surface2:#1a2332;
+  --border:#1e293b;
+  --text:#c8d6e5;
+  --text-dim:#64748b;
+  --aurora1:#22d3ee;
+  --aurora2:#818cf8;
+  --aurora3:#34d399;
+  --lava:#f97316;
+  --ice:#e0f2fe;
+  --glacier:#38bdf8;
+}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Inter',system-ui,sans-serif;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* Aurora header */
+.aurora{
+  position:relative;
+  height:220px;
+  overflow:hidden;
+  background:linear-gradient(135deg,#0a0e17 0%,#0f172a 40%,#0a0e17 100%);
+}
+.aurora::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 600px 120px at 30% 40%, rgba(34,211,238,0.15), transparent),
+    radial-gradient(ellipse 500px 100px at 60% 50%, rgba(129,140,248,0.12), transparent),
+    radial-gradient(ellipse 700px 80px at 70% 30%, rgba(52,211,153,0.10), transparent);
+  animation:aurora-shift 12s ease-in-out infinite alternate;
+}
+@keyframes aurora-shift{
+  0%{transform:translateX(-30px) scaleX(1)}
+  50%{transform:translateX(20px) scaleX(1.1)}
+  100%{transform:translateX(-10px) scaleX(0.95)}
+}
+.aurora-title{
+  position:absolute;bottom:30px;left:40px;
+  font-family:'Space Mono',monospace;
+  font-size:2.4rem;font-weight:700;
+  letter-spacing:0.3em;
+  background:linear-gradient(135deg,var(--aurora1),var(--aurora2),var(--aurora3));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.aurora-sub{
+  position:absolute;bottom:8px;left:42px;
+  font-size:0.75rem;letter-spacing:0.5em;color:var(--text-dim);
+  text-transform:uppercase;
+}
+
+/* Stars */
+.stars{position:absolute;inset:0;pointer-events:none}
+.star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;opacity:0.3;animation:twinkle 3s ease-in-out infinite alternate}
+@keyframes twinkle{0%{opacity:0.1}100%{opacity:0.6}}
+
+/* Layout */
+.container{max-width:1100px;margin:0 auto;padding:20px 30px}
+
+/* Panels */
+.panel{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:24px;
+  margin-bottom:20px;
+}
+.panel-title{
+  font-family:'Space Mono',monospace;
+  font-size:0.85rem;
+  letter-spacing:0.15em;
+  color:var(--aurora1);
+  margin-bottom:16px;
+  text-transform:uppercase;
+}
+
+/* Grid */
+.grid{display:grid;gap:20px}
+.grid-2{grid-template-columns:1fr 1fr}
+.grid-3{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:768px){
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  .aurora-title{font-size:1.4rem;left:20px}
+  .aurora-sub{left:22px}
+  .container{padding:12px 16px}
+}
+
+/* Controls */
+.control-group{margin-bottom:14px}
+.control-label{
+  font-size:0.7rem;
+  letter-spacing:0.1em;
+  color:var(--text-dim);
+  text-transform:uppercase;
+  margin-bottom:4px;
+}
+input[type="range"]{
+  -webkit-appearance:none;width:100%;height:4px;
+  background:var(--border);border-radius:2px;outline:none;
+}
+input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;
+  background:var(--aurora1);border-radius:50%;cursor:pointer;
+  box-shadow:0 0 8px rgba(34,211,238,0.4);
+}
+.value-badge{
+  display:inline-block;
+  font-family:'Space Mono',monospace;
+  font-size:0.75rem;
+  color:var(--aurora2);
+  background:var(--surface2);
+  padding:2px 8px;
+  border-radius:4px;
+  margin-top:2px;
+}
+
+/* Buttons */
+.btn{
+  font-family:'Space Mono',monospace;
+  font-size:0.75rem;
+  letter-spacing:0.1em;
+  padding:10px 24px;
+  border:1px solid var(--aurora1);
+  background:transparent;
+  color:var(--aurora1);
+  border-radius:6px;
+  cursor:pointer;
+  transition:all 0.2s;
+  text-transform:uppercase;
+}
+.btn:hover{
+  background:rgba(34,211,238,0.1);
+  box-shadow:0 0 20px rgba(34,211,238,0.15);
+}
+.btn-lava{
+  border-color:var(--lava);color:var(--lava);
+}
+.btn-lava:hover{
+  background:rgba(249,115,22,0.1);
+  box-shadow:0 0 20px rgba(249,115,22,0.15);
+}
+
+/* Chart */
+canvas{
+  width:100%;height:320px;
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:8px;
+}
+
+/* Stats */
+.stat{
+  text-align:center;padding:16px 8px;
+  background:var(--surface2);border-radius:8px;
+}
+.stat-value{
+  font-family:'Space Mono',monospace;
+  font-size:1.6rem;font-weight:700;
+  background:linear-gradient(135deg,var(--aurora1),var(--aurora2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.stat-label{
+  font-size:0.65rem;letter-spacing:0.15em;
+  color:var(--text-dim);text-transform:uppercase;margin-top:4px;
+}
+
+/* Tabs */
+.tabs{display:flex;gap:2px;margin-bottom:16px}
+.tab{
+  font-family:'Space Mono',monospace;
+  font-size:0.7rem;letter-spacing:0.1em;
+  padding:8px 16px;
+  background:var(--surface2);
+  color:var(--text-dim);
+  border:none;cursor:pointer;
+  transition:all 0.2s;
+  text-transform:uppercase;
+}
+.tab:first-child{border-radius:6px 0 0 6px}
+.tab:last-child{border-radius:0 6px 6px 0}
+.tab.active{
+  background:var(--aurora1);color:var(--bg);
+}
+
+/* Legend */
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+.legend-item{
+  display:flex;align-items:center;gap:6px;
+  font-size:0.7rem;color:var(--text-dim);
+}
+.legend-dot{
+  width:10px;height:10px;border-radius:50%;
+}
+
+/* Select */
+select{
+  font-family:'Inter',sans-serif;
+  font-size:0.8rem;
+  padding:6px 12px;
+  background:var(--surface2);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:6px;
+  cursor:pointer;
+}
+
+/* Footer */
+.footer{
+  text-align:center;
+  padding:30px;
+  font-size:0.65rem;
+  color:var(--text-dim);
+  letter-spacing:0.2em;
+}
+</style>
+</head>
+<body>
+
+<!-- Aurora Header -->
+<div class="aurora">
+  <div class="stars" id="stars"></div>
+  <div class="aurora-title">FJÖRÐUR</div>
+  <div class="aurora-sub">Pharmacokinetic Simulation Engine</div>
+</div>
+
+<div class="container">
+
+<!-- Simulation Mode Tabs -->
+<div class="tabs">
+  <button class="tab active" onclick="setMode('oral')">Oral</button>
+  <button class="tab" onclick="setMode('im')">Intramuscular</button>
+  <button class="tab" onclick="setMode('ddi')">DDI</button>
+</div>
+
+<!-- Controls + Chart Row -->
+<div class="grid grid-2">
+
+<!-- Left: Controls -->
+<div>
+  <div class="panel" id="paramPanel">
+    <div class="panel-title">⚙ Parameters</div>
+    <div id="controls"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-title">💊 Dosing</div>
+    <div class="control-group">
+      <div class="control-label">Dose (mg)</div>
+      <input type="range" id="dose" min="0.5" max="20" step="0.5" value="2">
+      <div class="value-badge" id="doseVal">2.0 mg</div>
+    </div>
+    <div class="control-group">
+      <div class="control-label">Duration (days)</div>
+      <input type="range" id="days" min="1" max="28" step="1" value="14">
+      <div class="value-badge" id="daysVal">14 days</div>
+    </div>
+    <div class="control-group">
+      <div class="control-label">Frequency</div>
+      <select id="freq">
+        <option value="24">Once daily</option>
+        <option value="12">Twice daily</option>
+        <option value="168">Once weekly</option>
+      </select>
+    </div>
+  </div>
+  <button class="btn" onclick="run()" style="width:100%">▶ Run Simulation</button>
+</div>
+
+<!-- Right: Chart -->
+<div>
+  <div class="panel">
+    <div class="panel-title">📊 Concentration–Time Curve</div>
+    <canvas id="chart"></canvas>
+    <div class="legend" id="legend"></div>
+  </div>
+</div>
+
+</div>
+
+<!-- Stats Row -->
+<div class="grid grid-4" id="statsRow" style="grid-template-columns:repeat(4,1fr);margin-top:4px">
+  <div class="stat"><div class="stat-value" id="statCmax">—</div><div class="stat-label">Cmax</div></div>
+  <div class="stat"><div class="stat-value" id="statTmax">—</div><div class="stat-label">Tmax</div></div>
+  <div class="stat"><div class="stat-value" id="statAUC">—</div><div class="stat-label">AUC</div></div>
+  <div class="stat"><div class="stat-value" id="statHalf">—</div><div class="stat-label">t½</div></div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  FJÖRÐUR PK ENGINE — BUILT WITH ❄️ AND 🌋 — GITHUB PAGES DEMO
+</div>
+
+</div>
+
+<script>
+// ============================================================
+// FJÖRÐUR — Browser PK Simulation Engine
+// ============================================================
+
+// --- Stars ---
+const starsEl = document.getElementById('stars');
+for(let i=0;i<40;i++){
+  const s=document.createElement('div');s.className='star';
+  s.style.left=Math.random()*100+'%';
+  s.style.top=Math.random()*100+'%';
+  s.style.animationDelay=Math.random()*3+'s';
+  starsEl.appendChild(s);
+}
+
+// --- Mode & Presets ---
+let currentMode = 'oral';
+const presets = {
+  oral:  { CL:25, Vd:200, ka:1.5, F:0.05, label:'Oral Estradiol 2mg' },
+  im:    { CL:0.05*300, Vd:300, ka:0.008, F:1.0, label:'IM Estradiol Valerate 10mg',
+           ev:true, kh:10, keEV:0.5, VdEV:80, fConv:0.10, MW:0.8665, dose:10 },
+  ddi:   { CL:25, Vd:200, ka:1.5, F:0.05, label:'E2 + CPA DDI',
+           ddi:true, Ki:0.4494, cpCL:2.73, cpVd:340, cpka:2.0, cpF:0.88, cpDose:50 }
+};
+
+function setMode(m){
+  currentMode=m;
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active',['oral','im','ddi'][i]===m);
+  });
+  buildControls();
+  run();
+}
+
+function buildControls(){
+  const p=presets[currentMode];
+  const c=document.getElementById('controls');
+  let html='';
+
+  if(currentMode==='ddi'){
+    html+=slider('CL (L/h)','cl',5,50,p.CL,1);
+    html+=slider('Vd (L)','vd',50,500,p.Vd,10);
+    html+=slider('ka (/h)','ka',0.5,5,p.ka,0.1);
+    html+=slider('F','f',0.01,1,p.F,0.01);
+    html+=slider('E2 Dose (mg)','dose',0.5,10,2,0.5);
+    html+=slider('CPA Dose (mg)','cpDose',10,100,p.cpDose,5);
+    html+=slider('Ki (mg/L)','ki',0.05,2.0,p.Ki,0.01);
+  } else if(p.ev){
+    html+=slider('ka_depot (/h)','ka',0.001,0.05,p.ka,0.001);
+    html+=slider('Vd_E2 (L)','vd',100,800,p.Vd,10);
+    html+=slider('ke_E2 (/h)','cl',0.02,0.15,p.CL/p.Vd,0.005);
+    html+=slider('f_conv','fconv',0.01,0.5,p.fConv,0.01);
+  } else {
+    html+=slider('CL (L/h)','cl',5,50,p.CL,1);
+    html+=slider('Vd (L)','vd',50,500,p.Vd,10);
+    html+=slider('ka (/h)','ka',0.5,5,p.ka,0.1);
+    html+=slider('F','f',0.01,1,p.F,0.01);
+  }
+  c.innerHTML=html;
+
+  // Bind sliders
+  c.querySelectorAll('input[type=range]').forEach(inp=>{
+    inp.addEventListener('input',()=>{
+      document.getElementById(inp.id+'Val').textContent=fmtVal(inp);
+    });
+  });
+}
+
+function slider(label,id,min,max,val,step){
+  return `<div class="control-group">
+    <div class="control-label">${label}</div>
+    <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}">
+    <div class="value-badge" id="${id}Val">${val}</div>
+  </div>`;
+}
+function fmtVal(inp){
+  const v=parseFloat(inp.value);
+  return v<1?v.toFixed(3):v<10?v.toFixed(2):v.toFixed(1);
+}
+
+// --- PK Simulation ---
+function simOral(CL,Vd,ka,F,dose,tEnd,step,freq){
+  const ke=CL/Vd;
+  const steps=Math.ceil(tEnd/step);
+  let gut=0,conc=0;
+  const t=[],c=[];
+  let nextDose=0,doseIdx=0;
+
+  for(let i=0;i<=steps;i++){
+    const time=i*step;
+    // Dose
+    if(time>=nextDose-0.001){
+      gut+=dose;
+      doseIdx++;
+      nextDose=doseIdx*freq;
+    }
+    // Derivatives
+    const dGut=-ka*gut;
+    const dConc=(F*ka*gut/Vd)-ke*conc;
+    gut+=dGut*step;
+    conc+=dConc*step;
+    if(gut<0)gut=0;
+    if(conc<0)conc=0;
+    t.push(time);
+    c.push(conc);
+  }
+  return{t,c};
+}
+
+function simEV(kaDepot,VdE2,keE2,fConv,dose,tEnd,step,freq){
+  const MW=0.8665;
+  const kh=10,keEV=0.5,VdEV=80;
+  const steps=Math.ceil(tEnd/step);
+  let depot=0,concE2=0;
+  const t=[],c=[];
+  let nextDose=0,doseIdx=0;
+
+  for(let i=0;i<=steps;i++){
+    const time=i*step;
+    if(time>=nextDose-0.001){
+      depot+=dose;
+      doseIdx++;
+      nextDose=doseIdx*freq;
+    }
+    // QSS for EV
+    const releaseRate=kaDepot*depot;
+    const CevQSS=(fConv*releaseRate/VdEV)/(kh+keEV);
+    const e2prod=kh*CevQSS*(VdEV/VdE2)*MW;
+    const dDepot=-kaDepot*depot;
+    const dE2=e2prod-keE2*concE2;
+    depot+=dDepot*step;
+    concE2+=dE2*step;
+    if(depot<0)depot=0;
+    if(concE2<0)concE2=0;
+    t.push(time);
+    c.push(concE2);
+  }
+  return{t,c};
+}
+
+function simDDI(clE2,vdE2,kaE2,fE2,doseE2,cpCL,cpVd,cpka,cpF,cpDose,Ki,days,freq,step){
+  const tEnd=days*24;
+  const steps=Math.ceil(tEnd/step);
+  const keE2=clE2/vdE2;
+  const keCP=cpCL/cpVd;
+
+  let gutE2=0,cE2=0,gutCP=0,cCP=0;
+  const t=[],cSub=[],cInh=[];
+  let nextDoseE2=0,nextDoseCP=0,doseIdx=0;
+
+  for(let i=0;i<=steps;i++){
+    const time=i*step;
+    if(time>=nextDoseE2-0.001){
+      gutE2+=doseE2;nextDoseE2=(doseIdx+1)*freq;
+    }
+    if(time>=nextDoseCP-0.001){
+      gutCP+=cpDose;nextDoseCP=(doseIdx+1)*freq;
+    }
+    if(Math.abs(time-nextDoseE2)<step/2||Math.abs(time-nextDoseCP)<step/2) doseIdx++;
+
+    // CPA PK
+    const dGutCP=-cpka*gutCP;
+    const dConcCP=(cpF*cpka*gutCP/cpVd)-keCP*cCP;
+
+    // Inhibition
+    const inhFrac=cCP/(cCP+Ki);
+    const clEff=clE2*(1-inhFrac);
+
+    // E2 PK with inhibited CL
+    const dGutE2=-kaE2*gutE2;
+    const dConcE2=(fE2*kaE2*gutE2/vdE2)-(clEff/vdE2)*cE2;
+
+    gutE2+=dGutE2*step;
+    cE2+=dConcE2*step;
+    gutCP+=dGutCP*step;
+    cCP+=dConcCP*step;
+
+    if(gutE2<0)gutE2=0;if(cE2<0)cE2=0;
+    if(gutCP<0)gutCP=0;if(cCP<0)cCP=0;
+
+    t.push(time);
+    cSub.push(cE2);
+    cInh.push(cCP);
+  }
+  return{t,cSub,cInh};
+}
+
+// --- Chart ---
+function drawChart(datasets,xLabel,yLabel){
+  const canvas=document.getElementById('chart');
+  const ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=canvas.clientWidth*dpr;
+  canvas.height=canvas.clientHeight*dpr;
+  ctx.scale(dpr,dpr);
+  const W=canvas.clientWidth,H=canvas.clientHeight;
+
+  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  ctx.fillRect(0,0,W,H);
+
+  const pad={t:20,r:20,b:40,l:60};
+  const gw=W-pad.l-pad.r,gh=H-pad.t-pad.b;
+
+  // Find ranges
+  let xMax=0,yMax=0;
+  for(const ds of datasets){
+    const lastX=ds.t[ds.t.length-1];
+    if(lastX>xMax)xMax=lastX;
+    for(const v of ds.c) if(v>yMax)yMax=v;
+  }
+  if(yMax===0)yMax=1;
+  yMax*=1.1;
+
+  const toX=v=>pad.l+(v/xMax)*gw;
+  const toY=v=>pad.t+gh-(v/yMax)*gh;
+
+  // Grid
+  ctx.strokeStyle='#1e293b';ctx.lineWidth=0.5;
+  for(let i=0;i<=5;i++){
+    const y=pad.t+gh*(i/5);
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+    ctx.fillStyle='#475569';ctx.font='10px Space Mono';
+    ctx.textAlign='right';
+    ctx.fillText((yMax*(1-i/5)).toFixed(yMax<0.1?4:yMax<1?3:1),pad.l-8,y+4);
+  }
+  for(let i=0;i<=6;i++){
+    const x=pad.l+gw*(i/6);
+    ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+gh);ctx.stroke();
+    ctx.fillStyle='#475569';ctx.font='10px Space Mono';
+    ctx.textAlign='center';
+    ctx.fillText((xMax*i/6).toFixed(0)+'h',x,H-pad.b+16);
+  }
+
+  // Axes labels
+  ctx.fillStyle='#64748b';ctx.font='10px Inter';ctx.textAlign='center';
+  ctx.fillText(xLabel,pad.l+gw/2,H-4);
+  ctx.save();ctx.translate(14,pad.t+gh/2);ctx.rotate(-Math.PI/2);
+  ctx.fillText(yLabel,0,0);ctx.restore();
+
+  // Lines
+  const colors=['#22d3ee','#f97316','#818cf8','#34d399'];
+  for(let d=0;d<datasets.length;d++){
+    const ds=datasets[d];
+    ctx.strokeStyle=colors[d%colors.length];
+    ctx.lineWidth=1.5;
+    ctx.beginPath();
+    for(let i=0;i<ds.t.length;i++){
+      const x=toX(ds.t[i]),y=toY(ds.c[i]);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+
+  // Legend
+  const legendEl=document.getElementById('legend');
+  legendEl.innerHTML=datasets.map((ds,i)=>
+    `<div class="legend-item"><div class="legend-dot" style="background:${colors[i%colors.length]}"></div>${ds.label}</div>`
+  ).join('');
+}
+
+// --- Stats ---
+function calcStats(t,c,pgPerLiter){
+  let cmax=0,tmax=0;
+  for(let i=0;i<c.length;i++){
+    if(c[i]>cmax){cmax=c[i];tmax=t[i];}
+  }
+  let auc=0;
+  for(let i=1;i<t.length;i++){
+    auc+=(c[i]+c[i-1])/2*(t[i]-t[i-1]);
+  }
+  // Find first peak for t½ estimation
+  let peakIdx=0;
+  for(let i=0;i<c.length;i++) if(c[i]>=cmax*0.99){peakIdx=i;break;}
+  // t½: time from peak to half-peak
+  let halfLife='—';
+  const halfC=cmax/2;
+  for(let i=peakIdx;i<c.length;i++){
+    if(c[i]<=halfC){
+      halfLife=((t[i]-tmax)/24).toFixed(1)+'d';
+      break;
+    }
+  }
+
+  const unit=pgPerLiter?' pg/mL':' mg/L';
+  const scale=pgPerLiter?1e6:1;
+  document.getElementById('statCmax').textContent=(cmax*scale).toFixed(1)+unit;
+  document.getElementById('statTmax').textContent=tmax<24?tmax.toFixed(1)+'h':(tmax/24).toFixed(1)+'d';
+  document.getElementById('statAUC').textContent=(auc*scale).toFixed(1)+(pgPerLiter?' pg·h/mL':' mg·h/L');
+  document.getElementById('statHalf').textContent=halfLife;
+}
+
+// --- Run ---
+function run(){
+  const dose=parseFloat(document.getElementById('dose').value);
+  const days=parseInt(document.getElementById('days').value);
+  const freq=parseInt(document.getElementById('freq').value);
+  const tEnd=days*24;
+  const step=0.1; // hours
+
+  if(currentMode==='oral'){
+    const CL=parseFloat(document.getElementById('cl').value);
+    const Vd=parseFloat(document.getElementById('vd').value);
+    const ka=parseFloat(document.getElementById('ka').value);
+    const F=parseFloat(document.getElementById('f').value);
+    const result=simOral(CL,Vd,ka,F,dose,tEnd,step,freq);
+    drawChart([{t:result.t,c:result.c,label:'E2 (oral)'}],'Time','Concentration (mg/L)');
+    calcStats(result.t,result.c,true);
+  }
+  else if(currentMode==='im'){
+    const ka=parseFloat(document.getElementById('ka').value);
+    const Vd=parseFloat(document.getElementById('vd').value);
+    const ke=parseFloat(document.getElementById('cl').value)/Vd;
+    const fConv=parseFloat(document.getElementById('fconv').value);
+    const result=simEV(ka,Vd,ke,fConv,dose,tEnd,step,freq);
+    drawChart([{t:result.t,c:result.c,label:'E2 (IM EV)'}],'Time','Concentration (mg/L)');
+    calcStats(result.t,result.c,true);
+  }
+  else if(currentMode==='ddi'){
+    const CL=parseFloat(document.getElementById('cl').value);
+    const Vd=parseFloat(document.getElementById('vd').value);
+    const ka=parseFloat(document.getElementById('ka').value);
+    const F=parseFloat(document.getElementById('f').value);
+    const cpDose=parseFloat(document.getElementById('cpDose').value);
+    const Ki=parseFloat(document.getElementById('ki').value);
+
+    // With DDI
+    const withDDI=simDDI(CL,Vd,ka,F,dose,2.73,340,2.0,0.88,cpDose,Ki,days,freq,step);
+    // Without DDI (CPA dose=0)
+    const noDDI=simDDI(CL,Vd,ka,F,dose,2.73,340,2.0,0.88,0,Ki,days,freq,step);
+
+    drawChart([
+      {t:withDDI.t,c:withDDI.cSub,label:'E2 + CPA'},
+      {t:noDDI.t,c:noDDI.cSub,label:'E2 alone'}
+    ],'Time','Concentration (mg/L)');
+
+    // Stats for DDI case
+    calcStats(withDDI.t,withDDI.cSub,true);
+
+    // Show AUC ratio
+    let aucDDI=0,aucCtrl=0;
+    for(let i=1;i<withDDI.t.length;i++){
+      aucDDI+=(withDDI.cSub[i]+withDDI.cSub[i-1])/2*(withDDI.t[i]-withDDI.t[i-1]);
+      aucCtrl+=(noDDI.cSub[i]+noDDI.cSub[i-1])/2*(noDDI.t[i]-noDDI.t[i-1]);
+    }
+    const ratio=(aucDDI/aucCtrl).toFixed(2);
+    document.getElementById('statAUC').textContent=`${ratio}x ratio`;
+  }
+}
+
+// --- Init ---
+buildControls();
+run();
+</script>
+</body>
+</html>
