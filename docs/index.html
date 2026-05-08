@@ -407,6 +407,7 @@ function buildControls(){
   c.querySelectorAll('input[type=range]').forEach(inp=>{
     inp.addEventListener('input',()=>{
       document.getElementById(inp.id+'Val').textContent=fmtVal(inp);
+      run();
     });
   });
 }
@@ -1251,6 +1252,22 @@ canvas{width:100%;border-radius:8px;background:var(--surface2);margin-top:12px}
 // --- Init ---
 buildControls();
 run();
+
+// Bind dosing sliders
+const doseEl=document.getElementById('dose');
+const daysEl=document.getElementById('days');
+const freqEl=document.getElementById('freq');
+if(doseEl) doseEl.addEventListener('input',()=>{
+  document.getElementById('doseVal').textContent=parseFloat(doseEl.value).toFixed(1)+' mg';
+  run();
+});
+if(daysEl) daysEl.addEventListener('input',()=>{
+  document.getElementById('daysVal').textContent=daysEl.value+' days';
+  run();
+});
+if(freqEl) freqEl.addEventListener('change',()=>{
+  run();
+});
 </script>
 </body>
 </html>
