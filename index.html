@@ -294,6 +294,7 @@ select{
         <option value="168">Once weekly</option>
       </select>
     </div>
+    <button class="btn btn-lava" onclick="run()" style="width:100%;margin-top:12px"><svg class="icon icon-sm" viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21" fill="currentColor" stroke="none"/></svg> Run Simulation</button>
   </div>
 
 <!-- Right: Chart -->
@@ -362,13 +363,13 @@ function setMode(m){
   if(m==='calibration'){
     paramPanel.style.display='none';
     dosingPanel.style.display='none';
-    runBtn.style.display='none';
+    if(runBtn) runBtn.style.display='none';
     calibrationPanel.style.display='block';
     buildCalibrationControls();
   } else {
     paramPanel.style.display='block';
     dosingPanel.style.display='block';
-    runBtn.style.display='block';
+    if(runBtn) runBtn.style.display='block';
     calibrationPanel.style.display='none';
     buildControls();
     run();
