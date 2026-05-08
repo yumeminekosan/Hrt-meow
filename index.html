@@ -961,7 +961,8 @@ function computeCalError(targets,metrics){
   for(const t of targets){
     const sim=metrics[t.metric];
     if(sim===undefined) continue;
-    const relErr=Math.abs(sim-t.value)/t.value;
+    if(t.value===0) continue;
+    const relErr=Math.abs(sim-t.value)/Math.abs(t.value);
     total+=t.weight*relErr;
   }
   return total;
@@ -1069,47 +1070,184 @@ function generateReport(){
   const{optimalParams,minError}=calibrationState.results;
   const inputs=calibrationState.inputs;
   const simMetrics=simFactory(optimalParams,inputs.dose,inputs.days);
-
   const now=new Date().toISOString().replace('T',' ').slice(0,19);
-  let md=`# Calibration Report\n\n`;
-  md+=`Generated: ${now}\n\n`;
+  const nowFmt=new Date().toLocaleString('zh-CN');
 
-  md+=`## Calibration Parameters\n\n`;
-  md+=`| Parameter | Initial | Optimal | Deviation% |\n`;
-  md+=`|-----------|---------|---------|------------|\n`;
-  for(const name of inputs.paramNames){
-    const initial=inputs.paramRanges.find((_,i)=>inputs.paramNames[i]===name);
-    const initVal=initial?(initial.min+initial.max)/2:0;
-    const opt=optimalParams[name]||0;
-    const dev=initVal!==0?(((opt-initVal)/initVal)*100).toFixed(2):'N/A';
-    md+=`| ${name} | ${initVal.toFixed(2)} | ${opt.toFixed(4)} | ${dev} |\n`;
-  }
-
-  md+=`\n## Fit Quality\n\n`;
-  md+=`| Metric | Target | Predicted | Relative Error% |\n`;
-  md+=`|--------|--------|-----------|-----------------|\n`;
+  // Fit quality scoring
+  let totalRelErr=0,validCount=0;
+  const fitRows=[];
   for(const t of inputs.targets){
     const pred=simMetrics[t.metric]||0;
-    const relErr=t.value!==0?((Math.abs(pred-t.value)/t.value)*100).toFixed(2):'N/A';
-    md+=`| ${t.metric} | ${t.value} | ${pred.toFixed(4)} | ${relErr} |\n`;
+    let relErrPct='N/A',status='bad';
+    if(t.value!==0){
+      const re=Math.abs(pred-t.value)/Math.abs(t.value);
+      totalRelErr+=re;validCount++;
+      relErrPct=(re*100).toFixed(2);
+      status=re<0.05?'good':re<0.15?'warn':'bad';
+    }
+    fitRows.push({metric:t.metric,target:t.value,pred:pred.toFixed(4),relErrPct,status});
   }
+  const avgErr=validCount>0?totalRelErr/validCount:1;
+  const score=Math.max(0,Math.min(100,(1-avgErr)*100));
+  const grade=avgErr<0.05?'A':avgErr<0.15?'B':avgErr<0.30?'C':'D';
+  const gradeColor={A:'#34d399',B:'#22d3ee',C:'#eab308',D:'#ef4444'}[grade];
+  const gradeDesc={A:'优秀拟合 — 预测值非常接近目标值',B:'良好拟合 — 预测值与目标值偏差较小',C:'一般拟合 — 建议检查参数范围',D:'较差拟合 — 需要重新校准'}[grade];
 
-  md+=`\n## Error History\n\n`;
-  md+=`| Iteration | Error |\n`;
-  md+=`|-----------|-------|\n`;
-  for(let i=0;i<calibrationState.errorHistory.length;i++){
-    const step=calibrationState.errorHistory[i];
-    md+=`| ${i+1} | ${step.error.toExponential(4)} |\n`;
+  // Param table rows
+  const paramRows=inputs.paramNames.map(name=>{
+    const range=inputs.paramRanges.find((_,i)=>inputs.paramNames[i]===name);
+    const initVal=range?(range.min+range.max)/2:0;
+    const opt=optimalParams[name]||0;
+    const dev=initVal!==0?(((opt-initVal)/initVal)*100).toFixed(2):'N/A';
+    return{name,init:initVal.toFixed(2),opt:opt.toFixed(4),dev};
+  });
+
+  // Error history for chart
+  const errLabels=calibrationState.errorHistory.map((_,i)=>i+1);
+  const errData=calibrationState.errorHistory.map(s=>isFinite(s.error)?s.error:0);
+
+  // Build HTML
+  const hexClip='polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)';
+  const html=`<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>🔬 Calibration Report - Visual</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
+:root{--bg:#0a0e17;--surface:#111827;--surface2:#1a2332;--border:#1e293b;--text:#c8d6e5;--text-dim:#64748b;--aurora1:#22d3ee;--aurora2:#818cf8;--aurora3:#34d399;--lava:#f97316;--ark-red:#ef4444;--ark-yellow:#eab308;--ark-green:#34d399}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;line-height:1.6;padding:20px}
+.container{max-width:960px;margin:0 auto}
+h1{font-family:'Space Mono',monospace;font-size:1.5rem;color:var(--lava);margin-bottom:8px;display:flex;align-items:center;gap:12px}
+h1 .badge{width:48px;height:48px;background:var(--surface);clip-path:${hexClip};display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid var(--lava)}
+.meta{color:var(--text-dim);font-size:0.85rem;margin-bottom:24px}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;position:relative;overflow:hidden}
+.panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--aurora1),var(--aurora2),var(--aurora3))}
+.panel-title{font-family:'Space Mono',monospace;font-size:0.95rem;color:var(--aurora1);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.panel-title svg{width:18px;height:18px}
+.grade-card{display:flex;align-items:center;gap:24px;padding:20px;background:var(--surface2);border-radius:8px;margin-bottom:16px}
+.grade-hex{width:80px;height:80px;clip-path:${hexClip};display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:2rem;font-weight:700;color:#0a0e17}
+.grade-info h3{font-size:1.1rem;color:var(--text);margin-bottom:4px}
+.grade-info p{color:var(--text-dim);font-size:0.9rem}
+.progress-wrap{margin-top:8px}
+.progress-bar{height:8px;background:var(--bg);border-radius:4px;overflow:hidden;margin-top:4px}
+.progress-fill{height:100%;border-radius:4px;transition:width 0.3s}
+.fill-good{background:linear-gradient(90deg,var(--ark-green),var(--aurora3))}
+.fill-warn{background:linear-gradient(90deg,var(--ark-yellow),var(--lava))}
+.fill-bad{background:linear-gradient(90deg,var(--ark-red),#f87171)}
+table{width:100%;border-collapse:collapse;font-size:0.85rem}
+th{text-align:left;padding:8px 12px;background:var(--surface2);color:var(--aurora1);font-family:'Space Mono',monospace;font-size:0.8rem;border-bottom:1px solid var(--border)}
+td{padding:8px 12px;border-bottom:1px solid var(--border)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.dot-green{background:var(--ark-green)}
+.dot-yellow{background:var(--ark-yellow)}
+.dot-red{background:var(--ark-red)}
+canvas{width:100%;border-radius:8px;background:var(--surface2);margin-top:12px}
+.footer{text-align:center;color:var(--text-dim);font-size:0.75rem;margin-top:24px;padding:16px;border-top:1px solid var(--border)}
+.scanline{position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--aurora1),transparent);animation:scan 3s linear infinite;z-index:999;pointer-events:none}
+@keyframes scan{0%{opacity:0.3}50%{opacity:1}100%{opacity:0.3}}
+.corner{position:absolute;width:20px;height:20px;border-color:var(--lava);border-style:solid}
+.corner-tl{top:6px;left:6px;border-width:2px 0 0 2px}
+.corner-tr{top:6px;right:6px;border-width:2px 2px 0 0}
+.corner-bl{bottom:6px;left:6px;border-width:0 0 2px 2px}
+.corner-br{bottom:6px;right:6px;border-width:0 2px 2px 0}
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+<div class="container">
+<h1><span class="badge">⬡</span> Calibration Report</h1>
+<div class="meta">Generated: ${nowFmt} · RHODES ISLAND PK ENGINE</div>
+
+<!-- Grade Card -->
+<div class="panel">
+  <div class="corner corner-tl"></div><div class="corner corner-tr"></div><div class="corner corner-bl"></div><div class="corner corner-br"></div>
+  <div class="grade-card">
+    <div class="grade-hex" style="background:${gradeColor}">${grade}</div>
+    <div class="grade-info">
+      <h3>校准质量: ${grade}</h3>
+      <p>${gradeDesc}</p>
+      <div class="progress-wrap">
+        <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:var(--text-dim)"><span>Fit Score</span><span>${score.toFixed(1)}/100</span></div>
+        <div class="progress-bar"><div class="progress-fill ${score>=85?'fill-good':score>=60?'fill-warn':'fill-bad'}" style="width:${score}%"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fit Quality -->
+<div class="panel">
+  <div class="panel-title">📊 Fit Quality</div>
+  <table><thead><tr><th>Metric</th><th>Target</th><th>Predicted</th><th>Rel. Error</th><th>Status</th></tr></thead><tbody>
+  ${fitRows.map(r=>`<tr><td>${r.metric}</td><td>${r.target}</td><td>${r.pred}</td><td>${r.relErrPct==='N/A'?'N/A':r.relErrPct+'%'}</td><td><span class="dot dot-${r.status==='good'?'green':r.status==='warn'?'yellow':'red'}"></span>${r.status==='good'?'✓ 优秀':r.status==='warn'?'⚠ 良好':'✗ 偏差'}</td></tr>`).join('')}
+  </tbody></table>
+</div>
+
+<!-- Parameters -->
+<div class="panel">
+  <div class="panel-title">⚙️ Calibration Parameters</div>
+  <table><thead><tr><th>Parameter</th><th>Initial</th><th>Optimal</th><th>Deviation%</th></tr></thead><tbody>
+  ${paramRows.map(r=>`<tr><td style="font-family:'Space Mono',monospace;color:var(--aurora2)">${r.name}</td><td>${r.init}</td><td style="color:var(--lava)">${r.opt}</td><td>${r.dev==='N/A'?'N/A':r.dev+'%'}</td></tr>`).join('')}
+  </tbody></table>
+</div>
+
+<!-- Error Chart -->
+<div class="panel">
+  <div class="panel-title">📈 Error Convergence</div>
+  <canvas id="errChart" width="900" height="300"></canvas>
+</div>
+
+<div class="footer">RHODES ISLAND PK ENGINE · FJÖRÐUR + Arknights UI · ${nowFmt}</div>
+</div>
+<script>
+(function(){
+  const data=${JSON.stringify(errData)};
+  const canvas=document.getElementById('errChart');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height;
+  const pad={t:20,r:20,b:40,l:60};
+  const cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
+  const maxErr=Math.max(...data.filter(v=>isFinite(v)),0.001);
+  ctx.fillStyle='#0a0e17';ctx.fillRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='rgba(34,211,238,0.08)';ctx.lineWidth=1;
+  for(let i=0;i<=5;i++){const y=pad.t+ch*i/5;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();}
+  // Line
+  if(data.length>1){
+    ctx.beginPath();ctx.strokeStyle='#22d3ee';ctx.lineWidth=2;
+    for(let i=0;i<data.length;i++){
+      const x=pad.l+cw*i/(data.length-1);
+      const y=pad.t+ch*(1-data[i]/maxErr);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    // Fill
+    ctx.lineTo(pad.l+cw,pad.t+ch);ctx.lineTo(pad.l,pad.t+ch);ctx.closePath();
+    ctx.fillStyle='rgba(34,211,238,0.08)';ctx.fill();
+    // Dots
+    for(let i=0;i<data.length;i++){
+      const x=pad.l+cw*i/(data.length-1);
+      const y=pad.t+ch*(1-data[i]/maxErr);
+      ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle='#f97316';ctx.fill();
+    }
   }
+  // Axes labels
+  ctx.fillStyle='#475569';ctx.font='11px Space Mono';ctx.textAlign='center';
+  ctx.fillText('Iteration 1',pad.l,H-8);
+  ctx.fillText('Iteration '+data.length,W-pad.r,H-8);
+  ctx.textAlign='right';ctx.fillText(maxErr.toExponential(1),pad.l-8,pad.t+12);
+  ctx.fillText('0',pad.l-8,pad.t+ch);
+})();
+</script>
+</body></html>`;
 
-  md+=`\n---\nMinimum weighted error: ${minError.toExponential(4)}\n`;
-
-  // Download
-  const blob=new Blob([md],{type:'text/markdown'});
+  const blob=new Blob([html],{type:'text/html'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
-  a.download=`calibration-report-${now.replace(/[: ]/g,'-')}.md`;
+  a.download=`calibration-report-${now.replace(/[: ]/g,'-')}.html`;
   a.click();
   URL.revokeObjectURL(url);
 }
