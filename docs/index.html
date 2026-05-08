@@ -251,16 +251,28 @@ select{
   <button class="tab active" onclick="setMode('oral')">Oral</button>
   <button class="tab" onclick="setMode('im')">Intramuscular</button>
   <button class="tab" onclick="setMode('ddi')">DDI</button>
+  <button class="tab" onclick="setMode('calibration')">CALIBRATION</button>
 </div>
 
 <!-- Controls + Chart Row -->
-<div class="grid grid-2">
+<div class="grid grid-2" id="mainGrid">
 
 <!-- Left: Controls -->
-<div>
+<div id="leftPanel">
   <div class="panel" id="paramPanel">
     <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2.5" fill="var(--aurora1)" stroke="none"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2.5" fill="var(--aurora2)" stroke="none"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="2.5" fill="var(--aurora3)" stroke="none"/></svg> Parameters</div>
     <div id="controls"></div>
+  </div>
+  <div class="panel" id="calibrationPanel" style="display:none">
+    <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Calibration</div>
+    <div id="calibrationControls"></div>
+    <div style="margin-top:12px">
+      <button class="btn" onclick="runCalibration()" style="width:100%"><svg class="icon icon-sm" viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21" fill="currentColor" stroke="none"/></svg> Run Calibration</button>
+    </div>
+    <div style="margin-top:12px">
+      <button class="btn btn-lava" onclick="generateReport()" style="width:100%"><svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" fill="none"/><path d="M8 12h8M8 16h5"/></svg> Generate Report</button>
+    </div>
+    <div id="calibrationResults" style="margin-top:16px"></div>
   </div>
   <div class="panel">
     <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="5"/><line x1="7" y1="12" x2="17" y2="12"/></svg> Dosing</div>
@@ -340,10 +352,29 @@ const presets = {
 function setMode(m){
   currentMode=m;
   document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('active',['oral','im','ddi'][i]===m);
+    t.classList.toggle('active',['oral','im','ddi','calibration'][i]===m);
   });
-  buildControls();
-  run();
+
+  // Show/hide panels based on mode
+  const paramPanel=document.getElementById('paramPanel');
+  const calibrationPanel=document.getElementById('calibrationPanel');
+  const dosingPanel=document.querySelector('#leftPanel .panel:nth-child(2)');
+  const runBtn=document.querySelector('#leftPanel button[onclick="run()"]');
+
+  if(m==='calibration'){
+    paramPanel.style.display='none';
+    dosingPanel.style.display='none';
+    runBtn.style.display='none';
+    calibrationPanel.style.display='block';
+    buildCalibrationControls();
+  } else {
+    paramPanel.style.display='block';
+    dosingPanel.style.display='block';
+    runBtn.style.display='block';
+    calibrationPanel.style.display='none';
+    buildControls();
+    run();
+  }
 }
 
 function buildControls(){
@@ -722,6 +753,361 @@ function run(){
     document.getElementById('statAUC').textContent=`${ratio}x ratio`;
   }
 }
+
+/* ============================================================
+   CALIBRATION UI
+   ============================================================ */
+
+let calibrationState={
+  targets:[
+    {metric:'Cmax',value:0.15,weight:1.0},
+    {metric:'AUC',value:2.5,weight:0.5}
+  ],
+  paramNames:['CL','Vd'],
+  paramRanges:[{min:10,max:40},{min:100,max:400}],
+  resolution:10,
+  results:null,
+  errorHistory:[]
+};
+
+function buildCalibrationControls(){
+  const c=document.getElementById('calibrationControls');
+  let html='';
+
+  // Targets
+  html+='<div class="control-group"><div class="control-label">Target Metrics</div>';
+  html+='<div id="targetList">';
+  for(let i=0;i<calibrationState.targets.length;i++){
+    const t=calibrationState.targets[i];
+    html+=`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+      <select id="targetMetric${i}" style="flex:1">
+        <option value="Cmax" ${t.metric==='Cmax'?'selected':''}>Cmax</option>
+        <option value="AUC" ${t.metric==='AUC'?'selected':''}>AUC</option>
+        <option value="Tmax" ${t.metric==='Tmax'?'selected':''}>Tmax</option>
+      </select>
+      <input type="number" id="targetValue${i}" value="${t.value}" step="0.01" style="width:70px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px">
+      <input type="number" id="targetWeight${i}" value="${t.weight}" step="0.1" min="0" max="10" style="width:60px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px">
+    </div>`;
+  }
+  html+='</div>';
+  html+='<button class="btn" style="padding:4px 10px;font-size:0.6rem;margin-top:4px" onclick="addTarget()">+ Add Target</button>';
+  html+='</div>';
+
+  // Parameters
+  html+='<div class="control-group"><div class="control-label">Parameters to Calibrate</div>';
+  html+='<div id="paramList">';
+  for(let i=0;i<calibrationState.paramNames.length;i++){
+    const name=calibrationState.paramNames[i];
+    const range=calibrationState.paramRanges[i];
+    html+=`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+      <input type="text" id="paramName${i}" value="${name}" style="width:80px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px">
+      <span style="color:var(--text-dim);font-size:0.7rem">min</span>
+      <input type="number" id="paramMin${i}" value="${range.min}" step="1" style="width:60px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px">
+      <span style="color:var(--text-dim);font-size:0.7rem">max</span>
+      <input type="number" id="paramMax${i}" value="${range.max}" step="1" style="width:60px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px">
+    </div>`;
+  }
+  html+='</div>';
+  html+='<button class="btn" style="padding:4px 10px;font-size:0.6rem;margin-top:4px" onclick="addParam()">+ Add Parameter</button>';
+  html+='</div>';
+
+  // Resolution
+  html+=`<div class="control-group">
+    <div class="control-label">Grid Resolution (points per param)</div>
+    <input type="range" id="calResolution" min="5" max="50" step="5" value="${calibrationState.resolution}" oninput="document.getElementById('calResVal').textContent=this.value">
+    <div class="value-badge" id="calResVal">${calibrationState.resolution}</div>
+  </div>`;
+
+  // Dosing for simulation
+  html+=`<div class="control-group">
+    <div class="control-label">Dose (mg)</div>
+    <input type="number" id="calDose" value="2" step="0.5" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 12px">
+  </div>`;
+  html+=`<div class="control-group">
+    <div class="control-label">Duration (days)</div>
+    <input type="number" id="calDays" value="14" step="1" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 12px">
+  </div>`;
+
+  c.innerHTML=html;
+}
+
+function addTarget(){
+  calibrationState.targets.push({metric:'Cmax',value:0.1,weight:1.0});
+  buildCalibrationControls();
+}
+
+function addParam(){
+  calibrationState.paramNames.push('ka');
+  calibrationState.paramRanges.push({min:0.5,max:3.0});
+  buildCalibrationControls();
+}
+
+function getCalibrationInputs(){
+  const targets=[];
+  for(let i=0;i<calibrationState.targets.length;i++){
+    const metric=document.getElementById(`targetMetric${i}`)?.value||'Cmax';
+    const value=parseFloat(document.getElementById(`targetValue${i}`)?.value||'0');
+    const weight=parseFloat(document.getElementById(`targetWeight${i}`)?.value||'1');
+    targets.push({metric,value,weight});
+  }
+  const paramNames=[];
+  const paramRanges=[];
+  for(let i=0;i<calibrationState.paramNames.length;i++){
+    const name=document.getElementById(`paramName${i}`)?.value||`param${i}`;
+    const min=parseFloat(document.getElementById(`paramMin${i}`)?.value||'0');
+    const max=parseFloat(document.getElementById(`paramMax${i}`)?.value||'1');
+    paramNames.push(name);
+    paramRanges.push({min,max});
+  }
+  const resolution=parseInt(document.getElementById('calResolution')?.value||'10');
+  const dose=parseFloat(document.getElementById('calDose')?.value||'2');
+  const days=parseInt(document.getElementById('calDays')?.value||'14');
+  return{targets,paramNames,paramRanges,resolution,dose,days};
+}
+
+function simFactory(params,dose,days){
+  // Oral simulation with given params
+  const CL=params.CL||25;
+  const Vd=params.Vd||200;
+  const ka=params.ka||1.5;
+  const F=params.F||0.05;
+  const tEnd=days*24;
+  const step=0.5;
+  const freq=24;
+  const result=simOral(CL,Vd,ka,F,dose,tEnd,step,freq);
+
+  // Calculate metrics
+  let cmax=0,tmax=0;
+  for(let i=0;i<result.c.length;i++){
+    if(result.c[i]>cmax){cmax=result.c[i];tmax=result.t[i];}
+  }
+  let auc=0;
+  for(let i=1;i<result.t.length;i++){
+    auc+=(result.c[i]+result.c[i-1])/2*(result.t[i]-result.t[i-1]);
+  }
+
+  return{Cmax:cmax,AUC:auc,Tmax:tmax};
+}
+
+function runCalibration(){
+  const inputs=getCalibrationInputs();
+  const{targets,paramNames,paramRanges,resolution,dose,days}=inputs;
+
+  // Build grids
+  const grids=paramRanges.map(r=>{
+    const step=(r.max-r.min)/(resolution-1);
+    const points=[];
+    for(let i=0;i<resolution;i++) points.push(r.min+step*i);
+    return points;
+  });
+
+  let minError=Infinity;
+  let optimalParams={};
+  const allErrors=[];
+  const errorHistory=[];
+
+  // Grid search (supports 1, 2, or N params)
+  if(paramNames.length===1){
+    for(const p0 of grids[0]){
+      const params={[paramNames[0]]:p0};
+      const metrics=simFactory(params,dose,days);
+      const error=computeCalError(targets,metrics);
+      allErrors.push(error);
+      errorHistory.push({paramValue:p0,error});
+      if(error<minError){minError=error;optimalParams={...params};}
+    }
+  } else if(paramNames.length===2){
+    for(const p0 of grids[0]){
+      for(const p1 of grids[1]){
+        const params={[paramNames[0]]:p0,[paramNames[1]]:p1};
+        const metrics=simFactory(params,dose,days);
+        const error=computeCalError(targets,metrics);
+        allErrors.push(error);
+        errorHistory.push({paramValue:(p0+p1)/2,error});
+        if(error<minError){minError=error;optimalParams={...params};}
+      }
+    }
+  } else {
+    const combos=cartesianProduct(grids);
+    for(const combo of combos){
+      const params={};
+      paramNames.forEach((name,idx)=>params[name]=combo[idx]);
+      const metrics=simFactory(params,dose,days);
+      const error=computeCalError(targets,metrics);
+      allErrors.push(error);
+      errorHistory.push({paramValue:combo[0],error});
+      if(error<minError){minError=error;optimalParams={...params};}
+    }
+  }
+
+  calibrationState.results={optimalParams,minError,allErrors};
+  calibrationState.errorHistory=errorHistory;
+  calibrationState.inputs=inputs;
+
+  displayCalibrationResults(optimalParams,minError,targets,inputs);
+}
+
+function computeCalError(targets,metrics){
+  let total=0;
+  for(const t of targets){
+    const sim=metrics[t.metric];
+    if(sim===undefined) continue;
+    const relErr=Math.abs(sim-t.value)/t.value;
+    total+=t.weight*relErr;
+  }
+  return total;
+}
+
+function cartesianProduct(arrays){
+  if(arrays.length===0) return[[]];
+  const result=[];
+  const helper=(current,depth)=>{
+    if(depth===arrays.length){result.push([...current]);return;}
+    for(const val of arrays[depth]){
+      current.push(val);
+      helper(current,depth+1);
+      current.pop();
+    }
+  };
+  helper([],0);
+  return result;
+}
+
+function displayCalibrationResults(optimalParams,minError,targets,inputs){
+  const el=document.getElementById('calibrationResults');
+  let html='<div class="panel" style="margin-top:0">';
+  html+='<div class="panel-title">Results</div>';
+
+  // Optimal params table
+  html+='<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:12px">';
+  html+='<tr style="color:var(--text-dim);font-size:0.7rem;text-align:left"><th>Parameter</th><th>Optimal Value</th></tr>';
+  for(const[name,val]of Object.entries(optimalParams)){
+    html+=`<tr style="border-top:1px solid var(--border)"><td>${name}</td><td style="color:var(--aurora1);font-family:'Space Mono',monospace">${val.toFixed(4)}</td></tr>`;
+  }
+  html+='</table>';
+
+  // Min error
+  html+=`<div style="margin-bottom:12px;font-size:0.8rem">Minimum weighted error: <span style="color:var(--aurora2);font-family:'Space Mono',monospace">${minError.toExponential(4)}</span></div>`;
+
+  // Fit quality
+  const simMetrics=simFactory(optimalParams,inputs.dose,inputs.days);
+  html+='<div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:4px">FIT QUALITY</div>';
+  html+='<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:12px">';
+  html+='<tr style="color:var(--text-dim);font-size:0.7rem;text-align:left"><th>Metric</th><th>Target</th><th>Predicted</th><th>Rel.Error%</th></tr>';
+  for(const t of targets){
+    const predicted=simMetrics[t.metric]||0;
+    const relErr=t.value!==0?(Math.abs(predicted-t.value)/t.value*100).toFixed(2):'N/A';
+    html+=`<tr style="border-top:1px solid var(--border)"><td>${t.metric}</td><td>${t.value}</td><td style="color:var(--aurora1)">${predicted.toFixed(4)}</td><td>${relErr}</td></tr>`;
+  }
+  html+='</table>';
+
+  // Error distribution chart (mini)
+  html+='<div style="font-size:0.7rem;color:var(--text-dim);margin-bottom:4px">ERROR DISTRIBUTION</div>';
+  html+='<canvas id="errorChart" style="width:100%;height:120px;background:var(--bg);border:1px solid var(--border);border-radius:4px"></canvas>';
+
+  html+='</div>';
+  el.innerHTML=html;
+
+  // Draw error distribution
+  setTimeout(()=>drawErrorChart(calibrationState.results.allErrors),50);
+}
+
+function drawErrorChart(errors){
+  const canvas=document.getElementById('errorChart');
+  if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=canvas.clientWidth*dpr;
+  canvas.height=canvas.clientHeight*dpr;
+  ctx.scale(dpr,dpr);
+  const W=canvas.clientWidth,H=canvas.clientHeight;
+
+  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  ctx.fillRect(0,0,W,H);
+
+  // Simple histogram
+  const bins=20;
+  const maxErr=Math.max(...errors,0.001);
+  const counts=new Array(bins).fill(0);
+  for(const e of errors){
+    const idx=Math.min(Math.floor(e/maxErr*bins),bins-1);
+    counts[idx]++;
+  }
+  const maxCount=Math.max(...counts,1);
+
+  const barW=(W-20)/bins;
+  for(let i=0;i<bins;i++){
+    const barH=(counts[i]/maxCount)*(H-30);
+    const x=10+i*barW;
+    const y=H-20-barH;
+    ctx.fillStyle='rgba(34,211,238,0.6)';
+    ctx.fillRect(x+1,y,barW-2,barH);
+  }
+
+  // X axis label
+  ctx.fillStyle='#475569';
+  ctx.font='10px Space Mono';
+  ctx.textAlign='center';
+  ctx.fillText('0',10,H-5);
+  ctx.fillText(maxErr.toExponential(2),W-10,H-5);
+}
+
+function generateReport(){
+  if(!calibrationState.results){
+    alert('Please run calibration first');
+    return;
+  }
+  const{optimalParams,minError}=calibrationState.results;
+  const inputs=calibrationState.inputs;
+  const simMetrics=simFactory(optimalParams,inputs.dose,inputs.days);
+
+  const now=new Date().toISOString().replace('T',' ').slice(0,19);
+  let md=`# Calibration Report\n\n`;
+  md+=`Generated: ${now}\n\n`;
+
+  md+=`## Calibration Parameters\n\n`;
+  md+=`| Parameter | Initial | Optimal | Deviation% |\n`;
+  md+=`|-----------|---------|---------|------------|\n`;
+  for(const name of inputs.paramNames){
+    const initial=inputs.paramRanges.find((_,i)=>inputs.paramNames[i]===name);
+    const initVal=initial?(initial.min+initial.max)/2:0;
+    const opt=optimalParams[name]||0;
+    const dev=initVal!==0?(((opt-initVal)/initVal)*100).toFixed(2):'N/A';
+    md+=`| ${name} | ${initVal.toFixed(2)} | ${opt.toFixed(4)} | ${dev} |\n`;
+  }
+
+  md+=`\n## Fit Quality\n\n`;
+  md+=`| Metric | Target | Predicted | Relative Error% |\n`;
+  md+=`|--------|--------|-----------|-----------------|\n`;
+  for(const t of inputs.targets){
+    const pred=simMetrics[t.metric]||0;
+    const relErr=t.value!==0?((Math.abs(pred-t.value)/t.value)*100).toFixed(2):'N/A';
+    md+=`| ${t.metric} | ${t.value} | ${pred.toFixed(4)} | ${relErr} |\n`;
+  }
+
+  md+=`\n## Error History\n\n`;
+  md+=`| Iteration | Error |\n`;
+  md+=`|-----------|-------|\n`;
+  for(let i=0;i<calibrationState.errorHistory.length;i++){
+    const step=calibrationState.errorHistory[i];
+    md+=`| ${i+1} | ${step.error.toExponential(4)} |\n`;
+  }
+
+  md+=`\n---\nMinimum weighted error: ${minError.toExponential(4)}\n`;
+
+  // Download
+  const blob=new Blob([md],{type:'text/markdown'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`calibration-report-${now.replace(/[: ]/g,'-')}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   END CALIBRATION UI
+   ============================================================ */
 
 // --- Init ---
 buildControls();
