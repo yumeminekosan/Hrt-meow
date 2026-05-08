@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔬 校准报告 - 可视化版</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --ark-bg: #0a0e17;
+  --ark-surface: #111827;
+  --ark-surface2: #1a2332;
+  --ark-border: #1e293b;
+  --ark-text: #c8d6e5;
+  --ark-text-dim: #64748b;
+  --ark-orange: #f97316;
+  --ark-cyan: #22d3ee;
+  --ark-blue: #818cf8;
+  --ark-green: #34d399;
+  --ark-red: #ef4444;
+  --ark-yellow: #eab308;
+  --ark-grid: rgba(34, 211, 238, 0.05);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--ark-bg);
+  color: var(--ark-text);
+  font-family: 'Inter', system-ui, sans-serif;
+  line-height: 1.6;
+  padding: 20px;
+  background-image: 
+    linear-gradient(var(--ark-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ark-grid) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+.container { max-width: 900px; margin: 0 auto; }
+
+/* 头部 - 明日方舟风格 */
+.header {
+  position: relative;
+  padding: 40px 30px;
+  background: linear-gradient(135deg, var(--ark-surface) 0%, var(--ark-bg) 100%);
+  border: 1px solid var(--ark-border);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--ark-orange), var(--ark-cyan), var(--ark-blue));
+}
+.header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 100px; height: 3px;
+  background: var(--ark-orange);
+}
+.header h1 {
+  font-family: 'Space Mono', monospace;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, var(--ark-cyan), var(--ark-blue));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 角标装饰 */
+.corner-accent {
+  position: absolute;
+  width: 20px; height: 20px;
+  border: 2px solid var(--ark-orange);
+  opacity: 0.5;
+}
+.corner-accent-tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+.corner-accent-tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+.corner-accent-bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+.corner-accent-br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+/* 总体评分 */
+.overall-score {
+  background: var(--ark-surface);
+  border: 1px solid var(--ark-border);
+  padding: 32px;
+  margin-bottom: 24px;
+  text-align: center;
+  position: relative;
+}
+.overall-score::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 3px;
+  background: linear-gradient(90deg, var(--ark-orange), var(--ark-cyan));
+}
+.overall-score .grade {
+  font-family: 'Space Mono', monospace;
+  font-size: 4rem;
+  font-weight: 700;
+  margin: 16px 0;
+}
+.overall-score .grade-A { color: var(--ark-green); text-shadow: 0 0 30px rgba(52, 211, 153, 0.3); }
+
+/* 进度条 */
+.progress-bar {
+  width: 100%; height: 8px;
+  background: var(--ark-surface2);
+  overflow: hidden;
+  margin: 12px 0;
+  position: relative;
+}
+.progress-bar .fill {
+  height: 100%;
+  transition: width 0.5s ease;
+}
+.progress-bar .fill-good { background: linear-gradient(90deg, var(--ark-green), #22c55e); }
+.progress-bar .fill-warning { background: linear-gradient(90deg, var(--ark-yellow), #ca8a04); }
+.progress-bar .fill-bad { background: linear-gradient(90deg, var(--ark-red), #dc2626); }
+
+/* 表格容器 */
+.table-container {
+  background: var(--ark-surface);
+  border: 1px solid var(--ark-border);
+  padding: 24px;
+  margin-bottom: 24px;
+  position: relative;
+}
+.table-container::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px; height: 100%;
+  background: var(--ark-orange);
+}
+.table-container h2 {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  color: var(--ark-cyan);
+}
+
+/* 红绿灯 */
+.traffic-light {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: 'Space Mono', monospace;
+}
+.traffic-light-green {
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: var(--ark-green);
+}
+.dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+.dot-green { background: var(--ark-green); }
+
+/* 图表容器 */
+.chart-container {
+  background: var(--ark-surface);
+  border: 1px solid var(--ark-border);
+  padding: 24px;
+  margin-bottom: 24px;
+  position: relative;
+}
+.chart-container::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 3px;
+  background: linear-gradient(90deg, var(--ark-orange), var(--ark-cyan));
+}
+
+/* 扫描线 */
+.scanline {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--ark-cyan), transparent);
+  opacity: 0.1;
+  animation: scan 4s linear infinite;
+  pointer-events: none;
+}
+@keyframes scan {
+  0% { transform: translateY(-100vh); }
+  100% { transform: translateY(100vh); }
+}
+
+footer {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--ark-text-dim);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+}
+footer .rhodes { color: var(--ark-orange); font-weight: bold; }
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+<div class="container">
+
+<div class="header">
+  <div class="corner-accent corner-accent-tl"></div>
+  <div class="corner-accent corner-accent-tr"></div>
+  <div class="corner-accent corner-accent-bl"></div>
+  <div class="corner-accent corner-accent-br"></div>
+  <h1>🔬 校准报告</h1>
+  <div style="color: var(--ark-text-dim); font-size: 0.85rem;">参数自动优化结果可视化</div>
+  <div style="color: var(--ark-text-dim); font-size: 0.75rem; margin-top: 12px; font-family: 'Space Mono', monospace;">
+    [2024-01-01 12:00:00] 生成完毕
+  </div>
+</div>
+
+<div class="overall-score">
+  <div style="color: var(--ark-text-dim); font-size: 0.8rem; letter-spacing: 0.2em; text-transform: uppercase;">总体拟合评分</div>
+  <div class="grade grade-A">A</div>
+  <div class="progress-bar">
+    <div class="fill fill-good" style="width: 92%"></div>
+  </div>
+  <div style="color: var(--ark-text-dim); font-size: 0.85rem; margin-top: 12px; font-family: 'Space Mono', monospace;">
+    FIT_SCORE: 92.3% — excellent!
+  </div>
+</div>
+
+<div class="table-container">
+  <h2>🎯 拟合质量详情</h2>
+  <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+    <thead>
+      <tr>
+        <th style="text-align: left; padding: 12px; color: var(--ark-text-dim); border-bottom: 2px solid var(--ark-border); font-family: 'Space Mono', monospace; font-size: 0.75rem; text-transform: uppercase;">指标</th>
+        <th style="text-align: left; padding: 12px; color: var(--ark-text-dim); border-bottom: 2px solid var(--ark-border); font-family: 'Space Mono', monospace; font-size: 0.75rem; text-transform: uppercase;">目标值</th>
+        <th style="text-align: left; padding: 12px; color: var(--ark-text-dim); border-bottom: 2px solid var(--ark-border); font-family: 'Space Mono', monospace; font-size: 0.75rem; text-transform: uppercase;">预测值</th>
+        <th style="text-align: left; padding: 12px; color: var(--ark-text-dim); border-bottom: 2px solid var(--ark-border); font-family: 'Space Mono', monospace; font-size: 0.75rem; text-transform: uppercase;">状态</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid var(--ark-border);"><strong>Cmax</strong></td>
+        <td style="padding: 12px; border-bottom: 1px solid var(--ark-border);">0.1500 mg/L</td>
+        <td style="padding: 12px; border-bottom: 1px solid var(--ark-border); color: var(--ark-cyan); font-weight: bold;">0.1523 mg/L</td>
+        <td style="padding: 12px; border-bottom: 1px solid var(--ark-border);">
+          <span class="traffic-light traffic-light-green">
+            <span class="dot dot-green"></span>
+            Excellent
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="chart-container">
+  <h2>📉 误差收敛过程</h2>
+  <canvas id="convergenceChart" style="width: 100%; height: 300px;"></canvas>
+</div>
+
+<footer>
+  <p><span class="rhodes">RHODES ISLAND</span> PK ENGINE</p>
+  <p style="margin-top: 8px; font-size: 0.7rem;">不懂就问,数据说话</p>
+</footer>
+
+</div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('convergenceChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.clientWidth * dpr;
+  canvas.height = canvas.clientHeight * dpr;
+  ctx.scale(dpr, dpr);
+  
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  const pad = { t: 30, r: 30, b: 50, l: 60 };
+  const gw = W - pad.l - pad.r, gh = H - pad.t - pad.b;
+  
+  const history = Array.from({length: 50}, (_, i) => ({
+    x: i + 1,
+    y: 0.1 * Math.exp(-i * 0.1) + 0.001 * Math.random()
+  }));
+  const maxErr = Math.max(...history.map(h => h.y), 0.001);
+  
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(0, 0, W, H);
+  
+  ctx.strokeStyle = '#334155';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.t + gh * (i / 5);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+  }
+  
+  ctx.strokeStyle = '#22d3ee';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  history.forEach((pt, i) => {
+    const x = pad.l + (pt.x / 50) * gw;
+    const y = pad.t + gh - (Math.log10(pt.y) / Math.log10(maxErr)) * gh;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+})();
+</script>
+</body>
+</html>

@@ -1,4 +1,7 @@
 import { writeFileSync } from 'fs';
+import { generateVisualCalibrationReport as generateHtmlReport, VisualCalibrationReportParams } from './visual-report';
+
+export { VisualCalibrationReportParams };
 
 /** 目标数据点 */
 export interface TargetDataPoint {
@@ -106,16 +109,6 @@ export function generateCalibrationReport(params: CalibrationReportParams): stri
  * @param params — 可视化报告参数
  * @returns 生成的 HTML 字符串
  */
-export function generateVisualCalibrationReport(params: {
-  targetData: Array<{ metric: string; target: number; unit?: string }>;
-  initialParams: Record<string, number>;
-  optimalParams: Record<string, number>;
-  simulationResults: Record<string, number>;
-  errorHistory: Array<{ iteration: number; params: Record<string, number>; error: number }>;
-  outputPath: string;
-  drugName?: string;
-}): string {
-  // 动态导入避免循环依赖
-  const { generateVisualCalibrationReport: generateHtml } = require('./visual-report');
-  return generateHtml(params);
+export function generateVisualCalibrationReport(params: VisualCalibrationReportParams): string {
+  return generateHtmlReport(params);
 }
