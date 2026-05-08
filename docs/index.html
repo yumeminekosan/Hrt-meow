@@ -845,21 +845,23 @@ function addParam(){
 function getCalibrationInputs(){
   const targets=[];
   for(let i=0;i<calibrationState.targets.length;i++){
-    const metric=document.getElementById(`targetMetric${i}`)?.value||'Cmax';
-    const value=parseFloat(document.getElementById(`targetValue${i}`)?.value||'0');
-    const weight=parseFloat(document.getElementById(`targetWeight${i}`)?.value||'1');
+    const def=calibrationState.targets[i];
+    const metric=document.getElementById(`targetMetric${i}`)?.value||def.metric;
+    const value=parseFloat(document.getElementById(`targetValue${i}`)?.value||def.value);
+    const weight=parseFloat(document.getElementById(`targetWeight${i}`)?.value||def.weight);
     targets.push({metric,value,weight});
   }
   const paramNames=[];
   const paramRanges=[];
   for(let i=0;i<calibrationState.paramNames.length;i++){
-    const name=document.getElementById(`paramName${i}`)?.value||`param${i}`;
-    const min=parseFloat(document.getElementById(`paramMin${i}`)?.value||'0');
-    const max=parseFloat(document.getElementById(`paramMax${i}`)?.value||'1');
+    const def={name:calibrationState.paramNames[i],...calibrationState.paramRanges[i]};
+    const name=document.getElementById(`paramName${i}`)?.value||def.name;
+    const min=parseFloat(document.getElementById(`paramMin${i}`)?.value||def.min);
+    const max=parseFloat(document.getElementById(`paramMax${i}`)?.value||def.max);
     paramNames.push(name);
     paramRanges.push({min,max});
   }
-  const resolution=parseInt(document.getElementById('calResolution')?.value||'10');
+  const resolution=parseInt(document.getElementById('calResolution')?.value||calibrationState.resolution);
   const dose=parseFloat(document.getElementById('calDose')?.value||'2');
   const days=parseInt(document.getElementById('calDays')?.value||'14');
   return{targets,paramNames,paramRanges,resolution,dose,days};

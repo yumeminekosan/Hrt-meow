@@ -295,17 +295,6 @@ select{
       </select>
     </div>
   </div>
-  <div class="panel" id="calibrationPanel" style="display:none">
-    <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Calibration</div>
-    <div id="calibrationControls"></div>
-    <div style="margin-top:12px">
-      <button class="btn" onclick="runCalibration()" style="width:100%"><svg class="icon icon-sm" viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21" fill="currentColor" stroke="none"/></svg> Run Calibration</button>
-    </div>
-    <div style="margin-top:12px">
-      <button class="btn btn-lava" onclick="generateReport()" style="width:100%"><svg class="icon icon-sm" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" fill="none"/><path d="M8 12h8M8 16h5"/></svg> Generate Report</button>
-    </div>
-    <div id="calibrationResults" style="margin-top:16px"></div>
-  </div>
 
 <!-- Right: Chart -->
 <div>
@@ -854,21 +843,23 @@ function addParam(){
 function getCalibrationInputs(){
   const targets=[];
   for(let i=0;i<calibrationState.targets.length;i++){
-    const metric=document.getElementById(`targetMetric${i}`)?.value||'Cmax';
-    const value=parseFloat(document.getElementById(`targetValue${i}`)?.value||'0');
-    const weight=parseFloat(document.getElementById(`targetWeight${i}`)?.value||'1');
+    const def=calibrationState.targets[i];
+    const metric=document.getElementById(`targetMetric${i}`)?.value||def.metric;
+    const value=parseFloat(document.getElementById(`targetValue${i}`)?.value||def.value);
+    const weight=parseFloat(document.getElementById(`targetWeight${i}`)?.value||def.weight);
     targets.push({metric,value,weight});
   }
   const paramNames=[];
   const paramRanges=[];
   for(let i=0;i<calibrationState.paramNames.length;i++){
-    const name=document.getElementById(`paramName${i}`)?.value||`param${i}`;
-    const min=parseFloat(document.getElementById(`paramMin${i}`)?.value||'0');
-    const max=parseFloat(document.getElementById(`paramMax${i}`)?.value||'1');
+    const def={name:calibrationState.paramNames[i],...calibrationState.paramRanges[i]};
+    const name=document.getElementById(`paramName${i}`)?.value||def.name;
+    const min=parseFloat(document.getElementById(`paramMin${i}`)?.value||def.min);
+    const max=parseFloat(document.getElementById(`paramMax${i}`)?.value||def.max);
     paramNames.push(name);
     paramRanges.push({min,max});
   }
-  const resolution=parseInt(document.getElementById('calResolution')?.value||'10');
+  const resolution=parseInt(document.getElementById('calResolution')?.value||calibrationState.resolution);
   const dose=parseFloat(document.getElementById('calDose')?.value||'2');
   const days=parseInt(document.getElementById('calDays')?.value||'14');
   return{targets,paramNames,paramRanges,resolution,dose,days};
