@@ -1,0 +1,6 @@
+[submodule "Hrt-kaffee"]
+	path = Hrt-kaffee
+	url = https://github.com/yumeminekosan/Hrt-kaffee.git
+[submodule "Hrt-meow"]
+	path = Hrt-meow
+	url = https://github.com/yumeminekosan/Hrt-meow.git
