@@ -17,14 +17,16 @@ export class OralModule implements IPKModule {
   readonly assumptionTags = ['一房室', '一级吸收', '一级消除'];
 
   private readonly ka: number;
-  private readonly ke: number;
+  private ke: number;
   private readonly Vd: number;
+  private readonly F: number;
   private readonly initialGutAmount: number;
 
   constructor(model: any) {
     this.ka = model.parameters.ka.value;
     this.Vd = model.parameters.Vd.value;
     this.ke = model.parameters.CL.value / this.Vd;
+    this.F = model.parameters.F?.value ?? 1.0;
     this.initialGutAmount = model.compartments.gut.initial_amount;
   }
 
@@ -34,7 +36,7 @@ export class OralModule implements IPKModule {
     const central = state[1];
 
     const dGut = -this.ka * gut;
-    const dCentral = (this.ka * gut / this.Vd) - this.ke * central;
+    const dCentral = (this.F * this.ka * gut / this.Vd) - this.ke * central;
 
     return new Float64Array([dGut, dCentral]);
   }
@@ -48,6 +50,11 @@ export class OralModule implements IPKModule {
     return state[1];
   }
 
+  /** 动态更新清除率 (DDI / 贝叶斯更新用) */
+  setClearance(newCL: number): void {
+    this.ke = newCL / this.Vd;
+  }
+
   selfTest(): { passed: boolean; errors: string[] } {
     const errors: string[] = [];
 
@@ -59,6 +66,10 @@ export class OralModule implements IPKModule {
     }
     if (!Number.isFinite(this.Vd) || this.Vd <= 0) {
       errors.push(`Vd must be finite positive, got ${this.Vd}`);
+    }
+
+    if (!Number.isFinite(this.F) || this.F < 0 || this.F > 1) {
+      errors.push(`F must be in [0,1], got ${this.F}`);
     }
 
     return { passed: errors.length === 0, errors };

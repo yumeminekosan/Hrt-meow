@@ -1,0 +1,29 @@
+{
+  "estradiol_valerate_IM": {
+    "source": "Transfeminine Science, Injectable Estradiol Simulator",
+    "dosage": "10mg every 7 days",
+    "n": 12,
+    "observed": {
+      "Cmax": {
+        "value": 667,
+        "unit": "pg/mL",
+        "cv": 0.25
+      },
+      "Cmin": {
+        "value": 150,
+        "unit": "pg/mL",
+        "cv": 0.30
+      },
+      "AUC": {
+        "value": 4200,
+        "unit": "pg·h/mL",
+        "cv": 0.20
+      },
+      "Tmax": {
+        "value": 2.1,
+        "unit": "days",
+        "cv": 0.15
+      }
+    }
+  }
+}

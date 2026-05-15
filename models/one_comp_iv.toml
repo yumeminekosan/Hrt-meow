@@ -3,6 +3,17 @@ id = "one_comp_iv"
 type = "one_comp_iv"
 
 [parameters]
-CL = 2.0
-Vd = 50.0
+
+[parameters.CL]
+value = 2.0
+distribution = "log-normal"
+cv = 0.30
+source = "PMID example"
+
+[parameters.Vd]
+value = 50.0
+distribution = "log-normal"
+cv = 0.20
+source = "PMID example"
+
 dose_mg = 10.0

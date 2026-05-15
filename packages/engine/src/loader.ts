@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as toml from 'toml';
 import { PKModel } from './types/pk-module.interface';
+import { ParamDist, ParamDistributions } from './monte-carlo';
 
 /**
  * 从TOML文件加载PK模块配置，并进行基本校验。
@@ -63,4 +64,61 @@ export function loadModuleFromTOML(filePath: string): PKModel {
   }
 
   return model as PKModel;
+}
+
+/**
+ * 从已解析的 TOML parameters 段提取参数分布信息。
+ *
+ * 支持两种格式：
+ * - 表格式: [parameters.CL] value=2.0 distribution="log-normal" cv=0.3
+ * - 平铺式: dose_mg = 10.0  →  视为 fixed 分布
+ *
+ * @param filePath TOML文件路径
+ * @returns ParamDistributions 对象，可直接传给 monteCarlo()
+ */
+export function parseParamDistribution(filePath: string): ParamDistributions {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, 'utf-8');
+  } catch (e: any) {
+    throw new Error(`无法读取TOML文件: ${filePath}\n${e.message}`);
+  }
+
+  let parsed: Record<string, any>;
+  try {
+    parsed = toml.parse(raw);
+  } catch (e: any) {
+    throw new Error(`TOML解析失败: ${filePath}\n${e.message}`);
+  }
+
+  const params = parsed.parameters as Record<string, any>;
+  if (!params || typeof params !== 'object') {
+    throw new Error(`TOML校验失败: parameters 缺失`);
+  }
+
+  const result: ParamDistributions = {};
+
+  for (const [key, def] of Object.entries(params)) {
+    if (typeof def === 'number') {
+      // 平铺式: 直接数值 → fixed
+      result[key] = {
+        baseValue: def,
+        distType: 'fixed',
+        cv: 0,
+        sd: 0,
+      } as ParamDist;
+    } else if (typeof def === 'object' && def !== null && 'value' in def) {
+      const p = def as Record<string, any>;
+      const distType = (p.distribution as ParamDist['distType']) ?? 'fixed';
+      result[key] = {
+        baseValue: p.value as number,
+        distType,
+        cv: distType === 'log-normal' ? (p.cv ?? 0) : 0,
+        sd: distType === 'normal' ? (p.sd ?? 0) : 0,
+      } as ParamDist;
+    }
+    // 其他类型跳过
+  }
+
+  return result;
 }

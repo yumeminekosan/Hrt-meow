@@ -10,7 +10,10 @@ import { IPKModule, SimulationConfig, StepResult, ModuleOutput } from './types/p
  * 接收一个实现了 IPKModule 的固件模块，用欧拉法推进状态。
  */
 export class Engine {
-  constructor(private readonly module: IPKModule) {}
+  constructor(
+    private readonly module: IPKModule,
+    private readonly solverType: 'euler' | 'euler-maruyama' = 'euler'
+  ) {}
 
   /**
    * 执行确定性欧拉法模拟。
@@ -47,12 +50,32 @@ export class Engine {
 
       const derivatives = this.module.computeDerivatives(t, state);
       const nextState = new Float64Array(state.length);
-      for (let j = 0; j < state.length; j++) {
-        nextState[j] = state[j] + derivatives[j] * stepSize;
+
+      if (this.solverType === 'euler-maruyama') {
+        // Euler-Maruyama: state += drift*dt + diffusion*dW
+        const diffusion = typeof this.module.computeDiffusion === 'function'
+          ? this.module.computeDiffusion(t, state)
+          : new Float64Array(state.length);
+        const dW = Math.sqrt(stepSize) * this.randn();
+        for (let j = 0; j < state.length; j++) {
+          nextState[j] = state[j] + derivatives[j] * stepSize + diffusion[j] * dW;
+        }
+      } else {
+        // 确定性欧拉: state += drift*dt
+        for (let j = 0; j < state.length; j++) {
+          nextState[j] = state[j] + derivatives[j] * stepSize;
+        }
       }
       state = nextState;
     }
 
     return results;
+  }
+
+  /** Box-Muller 变换：生成标准正态随机数 */
+  private randn(): number {
+    const u1 = Math.random();
+    const u2 = Math.random();
+    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   }
 }

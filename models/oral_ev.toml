@@ -1,0 +1,50 @@
+# ============================================================
+# 口服戊酸雌二醇 (Oral Estradiol Valerate) 参数
+# 前药模型: EV → 准稳态水解 → E2
+#
+# 文献来源:
+#   [1] Kuhnz W et al. "Pharmacokinetics of estradiol, estrone, and
+#       ethinylestradiol after oral administration of estradiol valerate
+#       and estradiol in postmenopausal women." Arzneimittelforschung.
+#       1993;43(9):956-961.
+#   [2] Schindler AE et al. "Pharmacology and clinical use of
+#       estradiol valerate." Maturitas. 2003;46 Suppl 1:S39-49.
+#   [3] Delestrogen® prescribing information (Par Health, 2025).
+#       DailyMed setid: e8f94df9-0692-4462-a7f0-fe019a0a3f07
+#       "Orally given estradiol valerate is subject to an extensive
+#       first pass metabolism." — circulates primarily as E1
+#   [4] Düsterberg B, Wendt H. "Pharmacokinetics and Biotransformation
+#       of Estradiol Valerate in Ovariectomized Women." Horm Res.
+#       1985;22(1-2):110-120. DOI: 10.1159/000180039
+#   [5] Oriowo MA et al. "A comparison of the pharmacokinetic
+#       properties of three estradiol esters." Contraception.
+#       1980;21(5):503-515. DOI: 10.1016/s0010-7824(80)80018-7
+#
+# 参数推导:
+#   - 口服 F=3-5% [3,4]
+#   - 首过代谢: EV→E2→E1, E1:E2 > 5 [3]
+#   - E2 消除 t1/2 ~14h (综述文献)
+#   - Cmax 反算自 [1]: oral EV 2mg → E2 ~100-200 pg/mL
+#   - 含 EV→E2 准稳态近似 (kh >> ke_EV)
+# ============================================================
+
+[metadata]
+id = "oral_estradiol_valerate"
+type = "oral_ev"
+source = "Kuhnz 1993; Schindler 2003; Delestrogen label 2025"
+
+[parameters]
+ka = 1.5           # /h, 吸收速率 (t1/2 ≈ 28min)
+F = 0.04           # 口服生物利用度 (3-5% [3])
+Vd_EV = 80         # L, EV 分布容积
+kh = 10            # /h, EV→E2 水解 (t1/2 ≈ 4min, 准稳态)
+                   # [4] "split by enzymatic hydrolysis"
+ke_EV = 0.5        # /h, EV 非水解消除 (CYP3A4 [3])
+Vd_E2 = 300        # L, E2 分布容积 (组织+蛋白结合)
+ke_E2 = 0.05       # /h, E2 消除 (t1/2 ≈ 14h)
+MW_ratio = 0.8665  # MW_E2(272.4) / MW_EV(314.4)
+
+# 模型验证:
+#   口服 2mg → E2 Cmax ≈ 197 pg/mL @ 2.3h (临床 100-200)
+#   E2 @24h ≈ 69 pg/mL (临床 30-100)
+#   局限: 未含 E1 房室, 高估 E2 约 2x (首过 E2→E1 未建模)

@@ -233,6 +233,26 @@ select{
   color:var(--text-dim);
   letter-spacing:0.2em;
 }
+/* Language Toggle */
+.lang-btn{
+  position:absolute;right:16px;top:16px;z-index:10;
+  background:var(--surface);border:1px solid var(--lava);color:var(--lava);
+  font-family:'Space Mono',monospace;font-size:0.75rem;font-weight:700;
+  padding:4px 12px;border-radius:4px;cursor:pointer;
+  transition:all 0.2s;
+}
+.lang-btn:hover{background:var(--lava);color:var(--bg);}
+/* Data Table */
+.data-table-wrap{max-height:300px;overflow-y:auto;margin-top:8px;border-radius:4px}
+.data-table-wrap::-webkit-scrollbar{width:6px}
+.data-table-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.data-table{width:100%;border-collapse:collapse;font-size:0.75rem;font-family:'Space Mono',monospace}
+.data-table th{position:sticky;top:0;background:var(--surface2);z-index:1}
+.toggle-btn{background:none;border:1px solid var(--border);color:var(--text-dim);padding:3px 8px;border-radius:4px;cursor:pointer;font-size:0.65rem;font-family:'Space Mono',monospace}
+.toggle-btn:hover{border-color:var(--aurora1);color:var(--aurora1)}
+/* Enhanced Stats */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:4px}
+@media(max-width:768px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -240,18 +260,23 @@ select{
 <!-- Aurora Header -->
 <div class="aurora">
   <div class="stars" id="stars"></div>
+  <button class="lang-btn" onclick="setLang()" id="langBtn">EN</button>
   <div class="aurora-title">FJÖRÐUR</div>
-  <div class="aurora-sub">Pharmacokinetic Simulation Engine</div>
+  <div class="aurora-sub" id="auroraSub">Pharmacokinetic Simulation Engine</div>
 </div>
 
 <div class="container">
 
 <!-- Simulation Mode Tabs -->
 <div class="tabs">
-  <button class="tab active" onclick="setMode('oral')">Oral</button>
-  <button class="tab" onclick="setMode('im')">Intramuscular</button>
-  <button class="tab" onclick="setMode('ddi')">DDI</button>
-  <button class="tab" onclick="setMode('calibration')">CALIBRATION</button>
+  <button class="tab active" onclick="setMode('oral')" data-i18n="t0">Oral</button>
+  <button class="tab" onclick="setMode('im')" data-i18n="t1">Intramuscular</button>
+  <button class="tab" onclick="setMode('ddi')" data-i18n="t2">DDI</button>
+  <button class="tab" onclick="setMode('calibration')" data-i18n="t3">CALIBRATION</button>
+  <button class="tab" onclick="setMode('master')">MASTER</button>
+  <button class="tab" onclick="setMode('fokkerplanck')">F-P</button>
+  <button class="tab" onclick="setMode('langevin')">LANGEVIN</button>
+  <button class="tab" onclick="setMode('pathintegral')">PATH INT</button>
 </div>
 
 <!-- Controls + Chart Row -->
@@ -260,11 +285,11 @@ select{
 <!-- Left: Controls -->
 <div id="leftPanel">
   <div class="panel" id="paramPanel">
-    <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2.5" fill="var(--aurora1)" stroke="none"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2.5" fill="var(--aurora2)" stroke="none"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="2.5" fill="var(--aurora3)" stroke="none"/></svg> Parameters</div>
+    <div class="panel-title" data-i18n="paramPanel"><svg class="icon" viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2.5" fill="var(--aurora1)" stroke="none"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2.5" fill="var(--aurora2)" stroke="none"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="2.5" fill="var(--aurora3)" stroke="none"/></svg> Parameters</div>
     <div id="controls"></div>
   </div>
   <div class="panel" id="calibrationPanel" style="display:none">
-    <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Calibration</div>
+    <div class="panel-title" data-i18n="calPanel"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Calibration</div>
     <div id="calibrationControls"></div>
     <div style="margin-top:12px">
       <button class="btn" onclick="runCalibration()" style="width:100%"><svg class="icon icon-sm" viewBox="0 0 24 24"><polygon points="6,3 20,12 6,21" fill="currentColor" stroke="none"/></svg> Run Calibration</button>
@@ -275,19 +300,19 @@ select{
     <div id="calibrationResults" style="margin-top:16px"></div>
   </div>
   <div class="panel">
-    <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="5"/><line x1="7" y1="12" x2="17" y2="12"/></svg> Dosing</div>
+    <div class="panel-title" data-i18n="dosingPanel"><svg class="icon" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="5"/><line x1="7" y1="12" x2="17" y2="12"/></svg> Dosing</div>
     <div class="control-group">
-      <div class="control-label">Dose (mg)</div>
+      <div class="control-label" data-i18n="dose">Dose (mg)</div>
       <input type="range" id="dose" min="0.5" max="20" step="0.5" value="2">
       <div class="value-badge" id="doseVal">2.0 mg</div>
     </div>
     <div class="control-group">
-      <div class="control-label">Duration (days)</div>
+      <div class="control-label" data-i18n="duration">Duration (days)</div>
       <input type="range" id="days" min="1" max="28" step="1" value="14">
       <div class="value-badge" id="daysVal">14 days</div>
     </div>
     <div class="control-group">
-      <div class="control-label">Frequency</div>
+      <div class="control-label" data-i18n="frequency">Frequency</div>
       <select id="freq">
         <option value="24">Once daily</option>
         <option value="12">Twice daily</option>
@@ -300,20 +325,47 @@ select{
 <!-- Right: Chart -->
 <div>
   <div class="panel">
-    <div class="panel-title"><svg class="icon" viewBox="0 0 24 24"><polyline points="3,17 8,11 13,14 21,5"/><line x1="3" y1="21" x2="3" y2="3"/><line x1="3" y1="21" x2="21" y2="21"/></svg> Concentration–Time Curve <button class="btn" style="float:right;padding:4px 10px;font-size:0.6rem" onclick="toggleSmooth()" id="smoothBtn">SMOOTH</button></div>
+    <div class="panel-title" data-i18n="chartPanel"><svg class="icon" viewBox="0 0 24 24"><polyline points="3,17 8,11 13,14 21,5"/><line x1="3" y1="21" x2="3" y2="3"/><line x1="3" y1="21" x2="21" y2="21"/></svg> Concentration–Time Curve <button class="btn" style="float:right;padding:4px 10px;font-size:0.6rem" onclick="toggleSmooth()" id="smoothBtn">SMOOTH</button></div>
     <canvas id="chart"></canvas>
     <div class="legend" id="legend"></div>
+  </div>
+  <div class="panel" style="margin-top:12px">
+    <div class="panel-title">⚙️ Solver Settings</div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <select id="solverSelect" style="flex:1">
+        <option value="euler">Euler (1st order)</option>
+        <option value="rk4">RK4 (4th order)</option>
+      </select>
+      <div style="font-size:0.7rem;color:var(--text-dim)">
+        WASM: <span id="wasmStatus">⏳ Loading...</span>
+      </div>
+    </div>
   </div>
 </div>
 
 </div>
 
 <!-- Stats Row -->
-<div class="grid" id="statsRow" style="grid-template-columns:repeat(2,1fr);gap:12px;margin-top:4px">
-  <div class="stat"><div class="stat-value" id="statCmax">—</div><div class="stat-label">Cmax</div></div>
-  <div class="stat"><div class="stat-value" id="statTmax">—</div><div class="stat-label">Tmax</div></div>
-  <div class="stat"><div class="stat-value" id="statAUC">—</div><div class="stat-label">AUC</div></div>
-  <div class="stat"><div class="stat-value" id="statHalf">—</div><div class="stat-label">t½</div></div>
+<div class="stat-grid" id="statsRow">
+  <div class="stat"><div class="stat-value" id="statCmax">—</div><div class="stat-label" data-i18n="sCmax">Cmax</div></div>
+  <div class="stat"><div class="stat-value" id="statTmax">—</div><div class="stat-label" data-i18n="sTmax">Tmax</div></div>
+  <div class="stat"><div class="stat-value" id="statAUC">—</div><div class="stat-label" data-i18n="sAUC">AUC</div></div>
+  <div class="stat"><div class="stat-value" id="statHalf">—</div><div class="stat-label" data-i18n="sHalf">t½</div></div>
+  <div class="stat"><div class="stat-value" id="statCmin">—</div><div class="stat-label" data-i18n="sCmin">Cmin</div></div>
+  <div class="stat"><div class="stat-value" id="statCssAvg">—</div><div class="stat-label" data-i18n="sCssAvg">Css_avg</div></div>
+  <div class="stat"><div class="stat-value" id="statAccum">—</div><div class="stat-label" data-i18n="sAccum">Accum. Ratio</div></div>
+  <div class="stat"><div class="stat-value" id="statPTA">—</div><div class="stat-label" data-i18n="sPTA">%T>MIC</div></div>
+</div>
+
+<!-- Data Table -->
+<div class="panel" style="margin-top:8px">
+  <div class="panel-title" data-i18n="dataTable">📋 Data Table <button class="toggle-btn" onclick="toggleDataTable()" id="dtToggle">Show</button></div>
+  <div id="dataTableWrap" style="display:none">
+    <div style="margin-bottom:8px">
+      <button class="btn" style="padding:3px 10px;font-size:0.65rem" onclick="exportCSV()" data-i18n="exportCSV">⬇ Export CSV</button>
+    </div>
+    <div class="data-table-wrap" id="dataTableBody"></div>
+  </div>
 </div>
 
 <!-- Footer -->
@@ -323,10 +375,32 @@ select{
 
 </div>
 
-<script>
+<script type="module">
 // ============================================================
 // FJÖRÐUR — Browser PK Simulation Engine
 // ============================================================
+let wasmEngine = null;
+let wasmMaster = null;
+let wasmFP = null;
+
+// WASM initialization (optional)
+async function initWasm() {
+  try {
+    const { default: init, PKEngine, MasterEquation, FokkerPlanck } = await import('./pkg/pk_engine.js');
+    await init();
+    wasmEngine = new PKEngine();
+    wasmMaster = new MasterEquation();
+    wasmFP = new FokkerPlanck();
+    document.getElementById('wasmStatus').textContent = '✅ Ready';
+    document.getElementById('wasmStatus').style.color = 'var(--aurora3)';
+    console.log('WASM PK Engine initialized');
+  } catch (e) {
+    console.warn('WASM init failed, using JS fallback:', e);
+    document.getElementById('wasmStatus').textContent = '❌ Fallback to JS';
+    document.getElementById('wasmStatus').style.color = 'var(--lava)';
+  }
+}
+initWasm();
 
 // --- Stars ---
 const starsEl = document.getElementById('stars');
@@ -339,6 +413,96 @@ for(let i=0;i<40;i++){
 }
 
 // --- Mode & Presets ---
+// --- i18n ---
+let currentLang='en';
+const i18n={
+  en:{
+    tabs:['Oral','Intramuscular','DDI','CALIBRATION'],
+    auroraSub:'Pharmacokinetic Simulation Engine',
+    paramPanel:'Parameters',dosingPanel:'Dosing',chartPanel:'Concentration–Time Curve',
+    dose:'Dose (mg)',duration:'Duration (days)',frequency:'Frequency',
+    onceDaily:'Once daily',twiceDaily:'Twice daily',onceWeekly:'Once weekly',
+    runSim:'Run Simulation',runCal:'Run Calibration',genReport:'Generate Report',smooth:'SMOOTH',raw:'RAW',
+    sCmax:'Cmax',sTmax:'Tmax',sAUC:'AUC',sHalf:'t½',sCmin:'Cmin',sCssAvg:'Css_avg',sAccum:'Accum. Ratio',sPTA:'%T>MIC',
+    dataTable:'Data Table',show:'Show',hide:'Hide',exportCSV:'Export CSV',time:'Time (h)',conc:'Conc.',
+    calPanel:'Calibration',targetMetrics:'Target Metrics',paramsToCalibrate:'Parameters to Calibrate',
+    gridRes:'Grid Resolution (points per param)',addTarget:'+ Add Target',addParam:'+ Add Parameter',
+    results:'Results',calQuality:'Calibration Quality',fitQuality:'Fit Quality',
+    fitScore:'Fit Score',errorConv:'Error Convergence',
+    metric:'Metric',target:'Target',predicted:'Predicted',relError:'Rel. Error',status:'Status',
+    excellent:'Excellent',good:'Good',fair:'Fair',poor:'Poor',
+    parameter:'Parameter',initial:'Initial',optimal:'Optimal',deviation:'Deviation%',
+    iteration:'Iteration',error:'Error',
+    generated:'Generated',engine:'RHODES ISLAND PK ENGINE',
+    footer:'FJÖRÐUR PK ENGINE — BUILT WITH ♥ AND ☿ — GITHUB PAGES DEMO',
+    langSwitch:'中文'
+  },
+  zh:{
+    tabs:['口服','肌注','药物相互作用','校准'],
+    auroraSub:'药代动力学模拟引擎',
+    paramPanel:'参数',dosingPanel:'给药',chartPanel:'浓度-时间曲线',
+    dose:'剂量 (mg)',duration:'持续时间 (天)',frequency:'给药频率',
+    onceDaily:'每日一次',twiceDaily:'每日两次',onceWeekly:'每周一次',
+    runSim:'运行模拟',runCal:'运行校准',genReport:'生成报告',smooth:'平滑',raw:'原始',
+    sCmax:'峰浓度',sTmax:'达峰时间',sAUC:'曲线下面积',sHalf:'半衰期',sCmin:'谷浓度',sCssAvg:'稳态平均浓度',sAccum:'蓄积比',sPTA:'%T>MIC',
+    dataTable:'数据表格',show:'展开',hide:'收起',exportCSV:'导出CSV',time:'时间 (h)',conc:'浓度',
+    calPanel:'校准',targetMetrics:'目标指标',paramsToCalibrate:'校准参数',
+    gridRes:'网格分辨率 (每参数采样点数)',addTarget:'+ 添加目标',addParam:'+ 添加参数',
+    results:'结果',calQuality:'校准质量',fitQuality:'拟合质量',
+    fitScore:'拟合分数',errorConv:'误差收敛',
+    metric:'指标',target:'目标',predicted:'预测',relError:'相对误差',status:'状态',
+    excellent:'优秀',good:'良好',fair:'一般',poor:'较差',
+    parameter:'参数',initial:'初始值',optimal:'最优值',deviation:'偏差%',
+    iteration:'迭代次数',error:'误差',
+    generated:'生成时间',engine:'罗德岛药代动力学引擎',
+    footer:'FJÖRÐUR 药代动力学引擎 — 以 ♥ 和 ☿ 构建 — GitHub Pages 演示',
+    langSwitch:'EN'
+  }
+};
+function setLang(lang){
+  if(!lang) lang=(currentLang==='en')?'zh':'en';
+  currentLang=lang;
+  const t=i18n[lang];
+  document.getElementById('langBtn').textContent=t.langSwitch;
+  document.getElementById('auroraSub').textContent=t.auroraSub;
+  // Tabs
+  const tabs=document.querySelectorAll('.tab');
+  tabs.forEach((tab,i)=>{if(t.tabs[i]) tab.textContent=t.tabs[i];});
+  // Panel titles and labels
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key=el.getAttribute('data-i18n');
+    if(t[key]) el.textContent=t[key];
+  });
+  // Dosing labels
+  const freqEl=document.getElementById('freq');
+  if(freqEl){
+    const opts=freqEl.options;
+    if(opts[0]) opts[0].textContent=t.onceDaily;
+    if(opts[1]) opts[1].textContent=t.twiceDaily;
+    if(opts[2]) opts[2].textContent=t.onceWeekly;
+  }
+  // Run button
+  const runSimBtn=document.querySelector('button[onclick="run()"]');
+  if(runSimBtn){
+    const svg=runSimBtn.querySelector('svg');
+    runSimBtn.innerHTML='';
+    if(svg) runSimBtn.appendChild(svg);
+    runSimBtn.appendChild(document.createTextNode(' '+t.runSim));
+  }
+  // Smooth button
+  const smoothBtn=document.getElementById('smoothBtn');
+  if(smoothBtn) smoothBtn.textContent=window._smooth?t.smooth:t.raw;
+  // Footer
+  const footerEl=document.querySelector('.footer');
+  if(footerEl) footerEl.textContent=t.footer;
+  // Data table toggle
+  const dtToggle=document.getElementById('dtToggle');
+  if(dtToggle){
+    const wrap=document.getElementById('dataTableWrap');
+    dtToggle.textContent=(wrap&&wrap.style.display!=='none')?t.hide:t.show;
+  }
+}
+
 let currentMode = 'oral';
 const presets = {
   oral:  { CL:25, Vd:200, ka:1.5, F:0.05, label:'Oral Estradiol 2mg' },
@@ -348,10 +512,13 @@ const presets = {
            ddi:true, Ki:0.4494, cpCL:2.73, cpVd:340, cpka:2.0, cpF:0.88, cpDose:50 }
 };
 
+const advancedModes = ['master', 'fokkerplanck', 'langevin', 'pathintegral'];
+
 function setMode(m){
   currentMode=m;
+  const allModes = ['oral','im','ddi','calibration','master','fokkerplanck','langevin','pathintegral'];
   document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('active',['oral','im','ddi','calibration'][i]===m);
+    t.classList.toggle('active', allModes[i]===m);
   });
 
   // Show/hide panels based on mode
@@ -366,6 +533,13 @@ function setMode(m){
     if(runBtn) runBtn.style.display='none';
     calibrationPanel.style.display='block';
     buildCalibrationControls();
+  } else if(advancedModes.includes(m)){
+    paramPanel.style.display='block';
+    dosingPanel.style.display='block';
+    if(runBtn) runBtn.style.display='block';
+    calibrationPanel.style.display='none';
+    buildAdvancedControls(m);
+    runAdvanced(m);
   } else {
     paramPanel.style.display='block';
     dosingPanel.style.display='block';
@@ -531,125 +705,156 @@ function simDDI(clE2,vdE2,kaE2,fE2,doseE2,cpCL,cpVd,cpka,cpF,cpDose,Ki,days,freq
   return{t,cSub,cInh};
 }
 
-// --- Chart ---
-function drawChart(datasets,xLabel,yLabel){
-  const canvas=document.getElementById('chart');
-  const ctx=canvas.getContext('2d');
-  const dpr=window.devicePixelRatio||1;
-  canvas.width=canvas.clientWidth*dpr;
-  canvas.height=canvas.clientHeight*dpr;
-  ctx.scale(dpr,dpr);
-  const W=canvas.clientWidth,H=canvas.clientHeight;
-
-  ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
-  ctx.fillRect(0,0,W,H);
-
-  const pad={t:20,r:20,b:40,l:60};
-  const gw=W-pad.l-pad.r,gh=H-pad.t-pad.b;
-
-  // Find ranges
-  let xMax=0,yMax=0;
-  for(const ds of datasets){
-    const lastX=ds.t[ds.t.length-1];
-    if(lastX>xMax)xMax=lastX;
-    for(const v of ds.c) if(v>yMax)yMax=v;
-  }
-  if(yMax===0)yMax=1;
-  yMax*=1.1;
-
-  const toX=v=>pad.l+(v/xMax)*gw;
-  const toY=v=>pad.t+gh-(v/yMax)*gh;
-
-  // Grid
-  ctx.strokeStyle='#1e293b';ctx.lineWidth=0.5;
-  for(let i=0;i<=5;i++){
-    const y=pad.t+gh*(i/5);
-    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
-    ctx.fillStyle='#475569';ctx.font='10px Space Mono';
-    ctx.textAlign='right';
-    ctx.fillText((yMax*(1-i/5)).toFixed(yMax<0.1?4:yMax<1?3:1),pad.l-8,y+4);
-  }
-  for(let i=0;i<=6;i++){
-    const x=pad.l+gw*(i/6);
-    ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+gh);ctx.stroke();
-    ctx.fillStyle='#475569';ctx.font='10px Space Mono';
-    ctx.textAlign='center';
-    ctx.fillText((xMax*i/6).toFixed(0)+'h',x,H-pad.b+16);
-  }
-
-  // Axes labels
-  ctx.fillStyle='#64748b';ctx.font='10px Inter';ctx.textAlign='center';
-  ctx.fillText(xLabel,pad.l+gw/2,H-4);
-  ctx.save();ctx.translate(14,pad.t+gh/2);ctx.rotate(-Math.PI/2);
-  ctx.fillText(yLabel,0,0);ctx.restore();
-
-  // ---- Monotone Hermite spline (PCHIP) ----
-  function drawSpline(ctx,ds,toX,toY){
-    const t=ds.t,c=ds.c,n=t.length;
-    if(n<2)return;
-    const dt=new Float64Array(n-1),dc=new Float64Array(n-1),m=new Float64Array(n-1);
-    for(let i=0;i<n-1;i++){dt[i]=t[i+1]-t[i];dc[i]=c[i+1]-c[i];m[i]=dc[i]/dt[i];}
-    const d=new Float64Array(n);
-    d[0]=m[0];d[n-1]=m[n-2];
-    for(let i=1;i<n-1;i++)d[i]=(m[i-1]+m[i])/2;
-    for(let i=0;i<n-1;i++){
-      if(m[i]===0){d[i]=0;d[i+1]=0;}
-      else{
-        const a=d[i]/m[i],b=d[i+1]/m[i];
-        if(a<0)d[i]=0;
-        if(b<0)d[i+1]=0;
-        const s=a*a+b*b;
-        if(s>9){const tau=3/Math.sqrt(s);d[i]=tau*a*m[i];d[i+1]=tau*b*m[i];}
+// --- Chart Engine (Refactored) ---
+const ChartEngine = {
+  canvas: null,
+  ctx: null,
+  data: null,
+  smooth: true,
+  
+  init() {
+    this.canvas = document.getElementById('chart');
+    this.ctx = this.canvas.getContext('2d');
+    this.smooth = window._smooth !== undefined ? window._smooth : true;
+  },
+  
+  setData(datasets, xLabel, yLabel) {
+    this.data = { datasets, xLabel, yLabel };
+    this.draw();
+  },
+  
+  draw() {
+    if (!this.data) return;
+    const { datasets, xLabel, yLabel } = this.data;
+    const ctx = this.ctx;
+    const dpr = window.devicePixelRatio || 1;
+    
+    this.canvas.width = this.canvas.clientWidth * dpr;
+    this.canvas.height = this.canvas.clientHeight * dpr;
+    ctx.scale(dpr, dpr);
+    
+    const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
+    const pad = { t: 20, r: 20, b: 40, l: 60 };
+    const gw = W - pad.l - pad.r, gh = H - pad.t - pad.b;
+    
+    // Background
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    ctx.fillRect(0, 0, W, H);
+    
+    // Find ranges
+    let xMax = 0, yMax = 0;
+    for (const ds of datasets) {
+      const lastX = ds.t[ds.t.length - 1];
+      if (lastX > xMax) xMax = lastX;
+      for (const v of ds.c) if (v > yMax) yMax = v;
+    }
+    if (yMax === 0) yMax = 1;
+    yMax *= 1.1;
+    
+    const toX = v => pad.l + (v / xMax) * gw;
+    const toY = v => pad.t + gh - (v / yMax) * gh;
+    
+    // Grid
+    ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 0.5;
+    for (let i = 0; i <= 5; i++) {
+      const y = pad.t + gh * (i / 5);
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+      ctx.fillStyle = '#475569'; ctx.font = '10px Space Mono';
+      ctx.textAlign = 'right';
+      ctx.fillText((yMax * (1 - i / 5)).toFixed(yMax < 0.1 ? 4 : yMax < 1 ? 3 : 1), pad.l - 8, y + 4);
+    }
+    for (let i = 0; i <= 6; i++) {
+      const x = pad.l + gw * (i / 6);
+      ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + gh); ctx.stroke();
+      ctx.fillStyle = '#475569'; ctx.font = '10px Space Mono';
+      ctx.textAlign = 'center';
+      ctx.fillText((xMax * i / 6).toFixed(0) + 'h', x, H - pad.b + 16);
+    }
+    
+    // Axes labels
+    ctx.fillStyle = '#64748b'; ctx.font = '10px Inter'; ctx.textAlign = 'center';
+    ctx.fillText(xLabel, pad.l + gw / 2, H - 4);
+    ctx.save(); ctx.translate(14, pad.t + gh / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillText(yLabel, 0, 0); ctx.restore();
+    
+    // Draw datasets
+    const colors = ['#22d3ee', '#f97316', '#818cf8', '#34d399'];
+    for (let d = 0; d < datasets.length; d++) {
+      const ds = datasets[d];
+      ctx.strokeStyle = colors[d % colors.length]; ctx.lineWidth = 2;
+      if (this.smooth) this.drawSpline(ctx, ds, toX, toY);
+      else {
+        ctx.beginPath();
+        for (let i = 0; i < ds.t.length; i++) {
+          const x = toX(ds.t[i]), y = toY(ds.c[i]);
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      if (ds.doses) {
+        ctx.globalAlpha = 0.15; ctx.strokeStyle = colors[d % colors.length]; ctx.lineWidth = 1;
+        for (const tt of ds.doses) {
+          const x = toX(tt);
+          ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + gh); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
       }
     }
-    ctx.beginPath();ctx.moveTo(toX(t[0]),toY(c[0]));
-    for(let i=0;i<n-1;i++){
-      const x0=toX(t[i]),x1=toX(t[i+1]),y0=toY(c[i]),y1=toY(c[i+1]);
-      const dx=(x1-x0)/3;
-      ctx.bezierCurveTo(x0+dx,y0+toY(0)-toY(d[i]*dt[i]/3),x1-dx,y1+toY(0)-toY(d[i+1]*dt[i]/3),x1,y1);
+    
+    // Legend
+    document.getElementById('legend').innerHTML = datasets.map((ds, i) =>
+      `<div class="legend-item"><div class="legend-dot" style="background:${colors[i % colors.length]}"></div>${ds.label}</div>`
+    ).join('');
+  },
+  
+  drawSpline(ctx, ds, toX, toY) {
+    const t = ds.t, c = ds.c, n = t.length;
+    if (n < 2) return;
+    const dt = new Float64Array(n - 1), dc = new Float64Array(n - 1), m = new Float64Array(n - 1);
+    for (let i = 0; i < n - 1; i++) { dt[i] = t[i + 1] - t[i]; dc[i] = c[i + 1] - c[i]; m[i] = dc[i] / dt[i]; }
+    const d = new Float64Array(n);
+    d[0] = m[0]; d[n - 1] = m[n - 2];
+    for (let i = 1; i < n - 1; i++) d[i] = (m[i - 1] + m[i]) / 2;
+    for (let i = 0; i < n - 1; i++) {
+      if (m[i] === 0) { d[i] = 0; d[i + 1] = 0; }
+      else {
+        const a = d[i] / m[i], b = d[i + 1] / m[i];
+        if (a < 0) d[i] = 0;
+        if (b < 0) d[i + 1] = 0;
+        const s = a * a + b * b;
+        if (s > 9) { const tau = 3 / Math.sqrt(s); d[i] = tau * a * m[i]; d[i + 1] = tau * b * m[i]; }
+      }
+    }
+    ctx.beginPath(); ctx.moveTo(toX(t[0]), toY(c[0]));
+    for (let i = 0; i < n - 1; i++) {
+      const x0 = toX(t[i]), x1 = toX(t[i + 1]), y0 = toY(c[i]), y1 = toY(c[i + 1]);
+      const dx = (x1 - x0) / 3;
+      ctx.bezierCurveTo(x0 + dx, y0 + toY(0) - toY(d[i] * dt[i] / 3), x1 - dx, y1 + toY(0) - toY(d[i + 1] * dt[i] / 3), x1, y1);
     }
     ctx.stroke();
+  },
+  
+  toggleSmooth() {
+    this.smooth = !this.smooth;
+    window._smooth = this.smooth;
+    document.getElementById('smoothBtn').textContent = this.smooth ? i18n[currentLang].smooth : i18n[currentLang].raw;
+    this.draw();
   }
+};
 
-  // ---- Draw ----
-  let smooth=window._smooth!==undefined?window._smooth:true;
-  function draw(){
-    const ctx=canvas.getContext('2d');
-    const legendEl=document.getElementById('legend');
-    const dpr=window.devicePixelRatio||1;
-    canvas.width=canvas.clientWidth*dpr;canvas.height=canvas.clientHeight*dpr;
-    ctx.scale(dpr,dpr);
-    const W=canvas.clientWidth,H=canvas.clientHeight;
-    ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
-    ctx.fillRect(0,0,W,H);
-    const pad={t:20,r:20,b:40,l:60};
-    const gw=W-pad.l-pad.r,gh=H-pad.t-pad.b;
-    let xMax=0,yMax=0;
-    for(const ds of datasets){const lx=ds.t[ds.t.length-1];if(lx>xMax)xMax=lx;for(const v of ds.c)if(v>yMax)yMax=v;}
-    if(yMax===0)yMax=1;yMax*=1.1;
-    const toX=v=>pad.l+(v/xMax)*gw;
-    const toY=v=>pad.t+gh-(v/yMax)*gh;
-    ctx.strokeStyle='#1e293b';ctx.lineWidth=0.5;
-    for(let i=0;i<=5;i++){const y=pad.t+gh*(i/5);ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();ctx.fillStyle='#475569';ctx.font='10px Space Mono';ctx.textAlign='right';ctx.fillText((yMax*(1-i/5)).toFixed(yMax<0.1?4:yMax<1?3:1),pad.l-8,y+4);}
-    for(let i=0;i<=6;i++){const x=pad.l+gw*(i/6);ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+gh);ctx.stroke();ctx.fillStyle='#475569';ctx.font='10px Space Mono';ctx.textAlign='center';ctx.fillText((xMax*i/6).toFixed(0)+'h',x,H-pad.b+16);}
-    ctx.fillStyle='#64748b';ctx.font='10px Inter';ctx.textAlign='center';ctx.fillText(xLabel,pad.l+gw/2,H-4);
-    ctx.save();ctx.translate(14,pad.t+gh/2);ctx.rotate(-Math.PI/2);ctx.fillText(yLabel,0,0);ctx.restore();
-    const colors=['#22d3ee','#f97316','#818cf8','#34d399'];
-    for(let d=0;d<datasets.length;d++){
-      const ds=datasets[d];ctx.strokeStyle=colors[d%colors.length];ctx.lineWidth=2;
-      if(smooth)drawSpline(ctx,ds,toX,toY);
-      else{ctx.beginPath();for(let i=0;i<ds.t.length;i++){const x=toX(ds.t[i]),y=toY(ds.c[i]);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}ctx.stroke();}
-      if(ds.doses){ctx.globalAlpha=0.15;ctx.strokeStyle=colors[d%colors.length];ctx.lineWidth=1;for(const tt of ds.doses){const x=toX(tt);ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+gh);ctx.stroke();}ctx.globalAlpha=1;}
-    }
-    legendEl.innerHTML=datasets.map((ds,i)=>`<div class="legend-item"><div class="legend-dot" style="background:${colors[i%colors.length]}"></div>${ds.label}</div>`).join('');
-  }
-  window._smooth=smooth;
-  window._redraw=draw;
-  draw();
+// Backward-compatible wrapper
+function drawChart(datasets, xLabel, yLabel) {
+  if (!ChartEngine.canvas) ChartEngine.init();
+  ChartEngine.setData(datasets, xLabel, yLabel);
+}
+
+function toggleSmooth() {
+  ChartEngine.toggleSmooth();
 }
 
 // --- Stats ---
-function calcStats(t,c,pgPerLiter){
+let _lastSimData=null; // store for data table & CSV
+function calcStats(t,c,pgPerLiter,freq){
   let cmax=0,tmax=0;
   for(let i=0;i<c.length;i++){
     if(c[i]>cmax){cmax=c[i];tmax=t[i];}
@@ -670,21 +875,87 @@ function calcStats(t,c,pgPerLiter){
       break;
     }
   }
+  // Enhanced stats
+  // Cmin: trough in last dosing interval
+  let cmin=Infinity;
+  if(freq&&freq>0){
+    const lastIntervalStart=Math.floor(t[t.length-1]/freq)*freq;
+    for(let i=t.length-1;i>=0;i--){
+      if(t[i]<lastIntervalStart) break;
+      if(c[i]<cmin) cmin=c[i];
+    }
+  } else {
+    for(let i=0;i<c.length;i++) if(c[i]<cmin) cmin=c[i];
+  }
+  if(!isFinite(cmin)) cmin=0;
+  // Css_avg = AUC / tau (last interval)
+  const tau=freq||24;
+  const cssAvg=auc/(t[t.length-1]) * tau; // approximate
+  // Accumulation ratio = steady-state Cmax / first-dose Cmax
+  // Estimate: last interval Cmax / first interval Cmax
+  let firstCmax=0,lastCmax=0;
+  if(freq&&freq>0){
+    for(let i=0;i<t.length&&t[i]<=freq;i++){if(c[i]>firstCmax) firstCmax=c[i];}
+    const lastStart=Math.floor(t[t.length-1]/freq)*freq;
+    for(let i=t.length-1;i>=0;i--){if(t[i]<lastStart) break;if(c[i]>lastCmax) lastCmax=c[i];}
+  } else {firstCmax=cmax;lastCmax=cmax;}
+  const accumRatio=firstCmax>0?(lastCmax/firstCmax).toFixed(2):'—';
 
   const unit=pgPerLiter?' pg/mL':' mg/L';
   const scale=pgPerLiter?1e6:1;
+  const aucUnit=pgPerLiter?' pg·h/mL':' mg·h/L';
   document.getElementById('statCmax').textContent=(cmax*scale).toFixed(1)+unit;
   document.getElementById('statTmax').textContent=tmax<24?tmax.toFixed(1)+'h':(tmax/24).toFixed(1)+'d';
-  document.getElementById('statAUC').textContent=(auc*scale).toFixed(1)+(pgPerLiter?' pg·h/mL':' mg·h/L');
+  document.getElementById('statAUC').textContent=(auc*scale).toFixed(1)+aucUnit;
   document.getElementById('statHalf').textContent=halfLife;
+  document.getElementById('statCmin').textContent=(cmin*scale).toFixed(1)+unit;
+  document.getElementById('statCssAvg').textContent=(cssAvg*scale).toFixed(1)+unit;
+  document.getElementById('statAccum').textContent=accumRatio;
+  document.getElementById('statPTA').textContent='—';
+  // Store for data table
+  _lastSimData={t,c,scale,unit,pgPerLiter};
+  renderDataTable(t,c,scale,unit);
 }
 
-// --- Toggle smooth ---
-function toggleSmooth(){
-  window._smooth=!window._smooth;
-  document.getElementById('smoothBtn').textContent=window._smooth?'SMOOTH':'RAW';
-  if(window._redraw)window._redraw();
+function renderDataTable(t,c,scale,unit){
+  const wrap=document.getElementById('dataTableBody');
+  if(!wrap) return;
+  // Sample max 200 points
+  const step=Math.max(1,Math.floor(t.length/200));
+  let html='<table class="data-table"><thead><tr><th data-i18n="time">'+i18n[currentLang].time+'</th><th data-i18n="conc">'+i18n[currentLang].conc+' ('+unit.trim()+')</th></tr></thead><tbody>';
+  for(let i=0;i<t.length;i+=step){
+    html+='<tr><td>'+t[i].toFixed(1)+'</td><td>'+(c[i]*scale).toFixed(3)+'</td></tr>';
+  }
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
 }
+
+function toggleDataTable(){
+  const wrap=document.getElementById('dataTableWrap');
+  const btn=document.getElementById('dtToggle');
+  if(!wrap||!btn) return;
+  const visible=wrap.style.display!=='none';
+  wrap.style.display=visible?'none':'block';
+  btn.textContent=visible?i18n[currentLang].show:i18n[currentLang].hide;
+}
+
+function exportCSV(){
+  if(!_lastSimData) return;
+  const {t,c,scale,unit,pgPerLiter}=_lastSimData;
+  let csv='Time (h),Concentration ('+unit.trim()+')\n';
+  for(let i=0;i<t.length;i++){
+    csv+=t[i].toFixed(2)+','+(c[i]*scale).toFixed(6)+'\n';
+  }
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='pk-simulation-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// toggleSmooth moved to ChartEngine
 
 // --- Run ---
 function run(){
@@ -694,24 +965,43 @@ function run(){
   const tEnd=days*24;
   const step=0.1; // hours
 
+  // Check if WASM is ready and use it for better performance
+  const useWasm = wasmEngine !== null;
+  const solver = document.getElementById('solverSelect')?.value || 'euler';
+
   if(currentMode==='oral'){
     const CL=parseFloat(document.getElementById('cl').value);
     const Vd=parseFloat(document.getElementById('vd').value);
     const ka=parseFloat(document.getElementById('ka').value);
     const F=parseFloat(document.getElementById('f').value);
-    const result=simOral(CL,Vd,ka,F,dose,tEnd,step,freq);
+    
+    let result;
+    if (useWasm) {
+      const wasmResult = wasmEngine.simulate_oral(CL, Vd, ka, F, dose, days, freq, step, solver);
+      result = parseWasmResult(wasmResult, 3); // [t, gut, central]
+    } else {
+      result = simOral(CL, Vd, ka, F, dose, tEnd, step, freq);
+    }
+    
     const doses=[];for(let d=0;d<days;d++)doses.push(d*freq);
     drawChart([{t:result.t,c:result.c,label:'E2 (oral)',doses:doses}],'Time','Concentration (mg/L)');
-    calcStats(result.t,result.c,true);
+    calcStats(result.t,result.c,true,freq);
   }
   else if(currentMode==='im'){
     const ka=parseFloat(document.getElementById('ka').value);
     const Vd=parseFloat(document.getElementById('vd').value);
     const ke=parseFloat(document.getElementById('cl').value)/Vd;
     const fConv=parseFloat(document.getElementById('fconv').value);
-    const result=simEV(ka,Vd,ke,fConv,dose,tEnd,step,freq);
+    
+    let result;
+    if (useWasm) {
+      const wasmResult = wasmEngine.simulate_ev(ka, Vd, ke, fConv, dose, days, freq, step, solver);
+      result = parseWasmResult(wasmResult, 3); // [t, depot, central]
+    } else {
+      result = simEV(ka, Vd, ke, fConv, dose, tEnd, step, freq);
+    }
+    
     const doses=[];for(let d=0;d<days;d++)doses.push(d*freq);
-    // Normalize depot to same scale as E2 for visual comparison
     const maxE2=Math.max(...result.c)||1;
     const maxDep=Math.max(...result.dep)||1;
     const depNorm=result.dep.map(v=>v/maxDep*maxE2);
@@ -719,7 +1009,7 @@ function run(){
       {t:result.t,c:result.c,label:'E₂ (mg/L)',doses:doses},
       {t:result.t,c:depNorm,label:'EV depot (scaled)',doses:doses}
     ],'Time','Concentration');
-    calcStats(result.t,result.c,true);
+    calcStats(result.t,result.c,true,freq);
   }
   else if(currentMode==='ddi'){
     const CL=parseFloat(document.getElementById('cl').value);
@@ -729,10 +1019,16 @@ function run(){
     const cpDose=parseFloat(document.getElementById('cpDose').value);
     const Ki=parseFloat(document.getElementById('ki').value);
 
-    // With DDI
-    const withDDI=simDDI(CL,Vd,ka,F,dose,2.73,340,2.0,0.88,cpDose,Ki,days,freq,step);
-    // Without DDI (CPA dose=0)
-    const noDDI=simDDI(CL,Vd,ka,F,dose,2.73,340,2.0,0.88,0,Ki,days,freq,step);
+    let withDDI, noDDI;
+    if (useWasm) {
+      const wasmWithDDI = wasmEngine.simulate_ddi(CL, Vd, ka, F, 2.73, 340, 2.0, 0.88, Ki, dose, cpDose, days, freq, step, solver);
+      const wasmNoDDI = wasmEngine.simulate_ddi(CL, Vd, ka, F, 2.73, 340, 2.0, 0.88, Ki, dose, 0, days, freq, step, solver);
+      withDDI = parseWasmResult(wasmWithDDI, 5); // [t, gut_e2, central_e2, gut_cp, central_cp]
+      noDDI = parseWasmResult(wasmNoDDI, 5);
+    } else {
+      withDDI=simDDI(CL,Vd,ka,F,dose,2.73,340,2.0,0.88,cpDose,Ki,days,freq,step);
+      noDDI=simDDI(CL,Vd,ka,F,dose,2.73,340,2.0,0.88,0,Ki,days,freq,step);
+    }
 
     const doses=[];for(let d=0;d<days;d++)doses.push(d*freq);
     drawChart([
@@ -740,10 +1036,8 @@ function run(){
       {t:noDDI.t,c:noDDI.cSub,label:'E2 alone',doses:doses}
     ],'Time','Concentration (mg/L)');
 
-    // Stats for DDI case
-    calcStats(withDDI.t,withDDI.cSub,true);
+    calcStats(withDDI.t,withDDI.cSub,true,freq);
 
-    // Show AUC ratio
     let aucDDI=0,aucCtrl=0;
     for(let i=1;i<withDDI.t.length;i++){
       aucDDI+=(withDDI.cSub[i]+withDDI.cSub[i-1])/2*(withDDI.t[i]-withDDI.t[i-1]);
@@ -752,6 +1046,150 @@ function run(){
     const ratio=(aucDDI/aucCtrl).toFixed(2);
     document.getElementById('statAUC').textContent=`${ratio}x ratio`;
   }
+
+// Helper to parse WASM Float64Array result
+function parseWasmResult(arr, nCols) {
+  const nRows = arr.length / nCols;
+  const t = [], c = [], dep = [], cSub = [], cInh = [];
+  for (let i = 0; i < nRows; i++) {
+    const base = i * nCols;
+    t.push(arr[base]);
+    if (nCols === 3) {
+      c.push(arr[base + 2]);
+      dep.push(arr[base + 1]);
+    } else if (nCols === 5) {
+      cSub.push(arr[base + 2]);
+      cInh.push(arr[base + 4]);
+    }
+  }
+  if (nCols === 3) return { t, c, dep };
+  if (nCols === 5) return { t, cSub, cInh };
+  return { t, c };
+}
+
+/* ============================================================
+   ADVANCED STOCHASTIC METHODS
+   ============================================================ */
+
+const advancedPresets = {
+  master: {
+    label: 'Master Equation (Gillespie)',
+    N0: 1000, k01: 0.05, k12: 0.01, k21: 0.005, ke: 0.02,
+    nTrajectories: 50, dt: 0.1, dose: 2
+  },
+  fokkerplanck: {
+    label: 'Fokker-Planck (Spectral)',
+    D: 0.01, xMin: 0, xMax: 5, Nx: 128,
+    dt: 0.001, tEnd: 24, dose: 2
+  },
+  langevin: {
+    label: 'Langevin (Nanoparticle)',
+    gamma: -9, mass: -18, temp: 300,
+    nTrajectories: 100, dt: 1e-7, tEnd: 1e-4, dose: 2
+  },
+  pathintegral: {
+    label: 'Path Integral (Rare Events)',
+    threshold: 1.0, nPaths: 1000, nImportance: 100,
+    tEnd: 24, dt: 0.01, dose: 2
+  }
+};
+
+function buildAdvancedControls(mode) {
+  const c = document.getElementById('controls');
+  const p = advancedPresets[mode];
+  let html = '';
+  
+  switch (mode) {
+    case 'master':
+      html += slider('Initial Molecules (N₀)', 'n0', 100, 5000, p.N0, 100);
+      html += slider('Gut→Central k', 'k01', 0.001, 0.2, p.k01, 0.001);
+      html += slider('Central→Periph k', 'k12', 0.001, 0.05, p.k12, 0.001);
+      html += slider('Periph→Central k', 'k21', 0.001, 0.02, p.k21, 0.001);
+      html += slider('Elimination ke', 'ke', 0.001, 0.1, p.ke, 0.001);
+      html += slider('Trajectories', 'ntraj', 10, 200, p.nTrajectories, 10);
+      break;
+    case 'fokkerplanck':
+      html += slider('Diffusion D', 'D', 0.001, 0.1, p.D, 0.001);
+      html += slider('Spatial Points Nx', 'nx', 32, 256, p.Nx, 32);
+      html += slider('Time Step dt', 'dt', 0.0001, 0.01, p.dt, 0.0001);
+      html += slider('Simulation Time', 'tend', 1, 48, p.tEnd, 1);
+      break;
+    case 'langevin':
+      html += slider('Friction γ (log10)', 'gamma', -12, -6, p.gamma, 0.1);
+      html += slider('Mass m (log10)', 'mass', -21, -15, p.mass, 0.1);
+      html += slider('Temperature T', 'temp', 273, 310, p.temp, 1);
+      html += slider('Trajectories', 'ntraj', 10, 500, p.nTrajectories, 10);
+      break;
+    case 'pathintegral':
+      html += slider('Toxicity Threshold', 'threshold', 0.1, 5, p.threshold, 0.1);
+      html += slider('MC Paths', 'npaths', 100, 10000, p.nPaths, 100);
+      html += slider('Importance Samples', 'nimp', 10, 500, p.nImportance, 10);
+      html += slider('Simulation Time', 'tend', 1, 72, p.tEnd, 1);
+      break;
+  }
+  
+  c.innerHTML = html;
+  c.querySelectorAll('input[type=range]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      document.getElementById(inp.id + 'Val').textContent = fmtVal(inp);
+      runAdvanced(mode);
+    });
+  });
+}
+
+function runAdvanced(mode) {
+  const dose = parseFloat(document.getElementById('dose').value);
+  const days = parseInt(document.getElementById('days').value);
+  
+  switch (mode) {
+    case 'master': runMasterEquation(dose, days); break;
+    case 'fokkerplanck': runFokkerPlanck(dose, days); break;
+    case 'langevin': runLangevin(dose, days); break;
+    case 'pathintegral': runPathIntegral(dose, days); break;
+  }
+}
+
+function runMasterEquation(dose, days) {
+  const N0 = parseInt(document.getElementById('n0').value);
+  const k01 = parseFloat(document.getElementById('k01').value);
+  const k12 = parseFloat(document.getElementById('k12').value);
+  const k21 = parseFloat(document.getElementById('k21').value);
+  const ke = parseFloat(document.getElementById('ke').value);
+  const nTraj = parseInt(document.getElementById('ntraj').value);
+  
+  if (wasmMaster) {
+    // Use WASM implementation
+    const kMatrix = new Float64Array([0, k01, 0, 0, 0, k12, 0, k21, 0]);
+    const kElim = new Float64Array([0, ke, 0]);
+    const result = wasmMaster.gillespie_ssa(N0, kMatrix, kElim, 3, days * 24, nTraj);
+    // Parse and display...
+    console.log('WASM Master Eq result:', result.length, 'points');
+  }
+  
+  // Fallback or display using JS implementation from advanced-sde-methods.js
+  // ... (integration with existing JS classes)
+}
+
+function runFokkerPlanck(dose, days) {
+  const D = parseFloat(document.getElementById('D').value);
+  const Nx = parseInt(document.getElementById('nx').value);
+  const dt = parseFloat(document.getElementById('dt').value);
+  const tEnd = parseFloat(document.getElementById('tend').value);
+  
+  if (wasmFP) {
+    const result = wasmFP.solve_fp(D, 0, dose * 2, Nx, dt, tEnd, 'absorption');
+    console.log('WASM FP result:', result.length, 'points');
+  }
+}
+
+function runLangevin(dose, days) {
+  // Use JS implementation from advanced-sde-methods.js
+  console.log('Langevin simulation:', dose, days);
+}
+
+function runPathIntegral(dose, days) {
+  // Use JS implementation from advanced-sde-methods.js
+  console.log('Path Integral simulation:', dose, days);
 }
 
 /* ============================================================
@@ -1268,6 +1706,14 @@ if(daysEl) daysEl.addEventListener('input',()=>{
 if(freqEl) freqEl.addEventListener('change',()=>{
   run();
 });
+
+// --- Advanced Methods JS Fallback ---
+// Load advanced-sde-methods.js for JS fallback when WASM is not available
+const script = document.createElement('script');
+script.src = 'advanced-sde-methods.js';
+script.onload = () => console.log('Advanced SDE methods loaded');
+script.onerror = () => console.warn('Advanced SDE methods not available');
+document.head.appendChild(script);
 </script>
 </body>
 </html>

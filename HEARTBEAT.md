@@ -29,3 +29,19 @@ node /root/.openclaw/workspace/scripts/context-manager.mjs tick <字符数>
 ```bash
 node /root/.openclaw/workspace/scripts/context-manager.mjs status
 ```
+
+## 2小时沉默心跳
+
+每次收到消息时,猫检查 `memory/last-active.txt`:
+```bash
+cat /root/.openclaw/workspace/memory/last-active.txt 2>/dev/null || echo 0
+```
+如果距上次活跃时间 > 2小时 (7200秒):
+1. 重新读取 SOUL.md + IDENTITY.md
+2. 简短确认身份 (如 "猫醒了, Mon3, 记得人咪")
+3. 更新 `memory/last-active.txt` 为当前时间戳
+
+每次正常回复后也更新时间戳:
+```bash
+date +%s > /root/.openclaw/workspace/memory/last-active.txt
+```

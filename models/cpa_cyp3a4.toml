@@ -1,0 +1,38 @@
+# ============================================================
+# CPA (醋酸环丙孕酮) CYP3A4 抑制 DDI 模型
+#
+# 文献来源:
+#   [1] Düsterberg B et al. "Pharmacokinetics of cyproterone acetate
+#       and its main metabolite 15 beta-hydroxy-cyproterone acetate
+#       in young healthy women." 1988.
+#       口服 100mg: Cmax=255 ng/mL @ 2-3h, t1/2=3.6天, F=88%
+#   [2] CPA CYP3A4 抑制 Ki: 文献来源未确认 (1.2 μmol/L 为估计值)
+# ============================================================
+
+[metadata]
+id = "cpa_cyp3a4_inhibition"
+source = "Düsterberg 1988 (CPA PK); Ki source unverified"
+
+[coupling]
+Ki = 1.2
+Ki_unit = "μmol/L"
+target_enzyme = "CYP3A4"
+mechanism = "competitive"
+
+# ---- 抑制剂: CPA (一房室口服) ----
+# 反算自 Düsterberg 1988: oral 100mg → Cmax=255 ng/mL @ 2.5h
+# ke = ln(2)/86.4h = 0.00802/h, Vd=340L, ka=2.0/h
+[inhibitor_params]
+CL = 2.73      # L/h, CPA 清除率 (ke*Vd)
+Vd = 340       # L, CPA 分布容积
+ka = 2.0       # /h, CPA 吸收速率
+dose_mg = 50   # mg, CPA 单次给药剂量
+F = 0.88       # 口服生物利用度 88% (Düsterberg 1988)
+
+# ---- 底物: 雌二醇 (一房室口服) ----
+[substrate_params]
+CL_baseline = 25  # L/h, E2 基线清除率
+Vd = 200          # L, E2 分布容积
+ka = 1.0          # /h, E2 吸收速率
+dose_mg = 2       # mg, E2 单次给药剂量
+F = 0.05          # 口服生物利用度 ~5%

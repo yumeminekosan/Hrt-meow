@@ -9,7 +9,8 @@ export class IVModule implements IPKModule {
   readonly moduleId: string;
   readonly assumptionTags: string[];
 
-  private readonly ke: number;
+  private ke: number;
+  private readonly Vd: number;
   private readonly initialConcentration: number;
 
   constructor(model: PKModel) {
@@ -17,9 +18,9 @@ export class IVModule implements IPKModule {
     this.assumptionTags = [...model.metadata.assumptions];
 
     const CL = model.parameters.CL.value;
-    const Vd = model.parameters.Vd.value;
-    this.ke = CL / Vd;
-    this.initialConcentration = model.compartments.central.initial_amount / Vd;
+    this.Vd = model.parameters.Vd.value;
+    this.ke = CL / this.Vd;
+    this.initialConcentration = model.compartments.central.initial_amount / this.Vd;
   }
 
   /** 扩散系数: 当前浓度的 15%，只对中央室 */
@@ -35,6 +36,10 @@ export class IVModule implements IPKModule {
 
   getInitialState(): Float64Array {
     return new Float64Array([this.initialConcentration]);
+  }
+
+  setClearance(newCL: number): void {
+    this.ke = newCL / this.Vd;
   }
 
   selfTest(): { passed: boolean; errors: string[] } {

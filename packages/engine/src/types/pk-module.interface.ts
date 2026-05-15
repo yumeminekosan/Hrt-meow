@@ -6,6 +6,12 @@ export interface IPKModule {
   /** 给定时间 t 和状态向量，返回变化率向量 */
   computeDerivatives(t: number, state: Float64Array): Float64Array;
 
+  /** 可选：SDE 扩散项（随机噪声强度） */
+  computeDiffusion?(t: number, state: Float64Array): Float64Array;
+
+  /** 可选：动态更新清除率 */
+  setClearance?(newCL: number): void;
+
   /** 返回初始状态向量 */
   getInitialState(): Float64Array;
 

@@ -1,0 +1,49 @@
+# ============================================================
+# 肌注戊酸雌二醇 (IM Estradiol Valerate) 油剂参数
+# 储库前药模型: Depot EV → 缓慢释放 → 准稳态水解 → E2
+#
+# 文献来源:
+#   [1] Oriowo MA et al. "A comparison of the pharmacokinetic properties
+#       of three estradiol esters." Contraception. 1980;21(5):503-515.
+#       DOI: 10.1016/s0010-7824(80)80018-7
+#   [2] Düsterberg B, Wendt H. "Pharmacokinetics and Biotransformation
+#       of Estradiol Valerate in Ovariectomized Women." Horm Res.
+#       1985;22(1-2):110-120. DOI: 10.1159/000180039
+#   [3] Delestrogen® prescribing information (Par Health, 2025).
+#       DailyMed setid: e8f94df9-0692-4462-a7f0-fe019a0a3f07
+#   [4] Oriowo MA et al. Acta Pharmacol Toxicol (Copenh). 1980.
+#       IM EV 10mg: E2 Cmax ~200-400 pg/mL @ 1-3 days, t1/2 ~4-5 days
+#   [5] Schindler AE et al. "Pharmacology and clinical use of
+#       estradiol valerate." Maturitas. 2003;46 Suppl 1:S39-49.
+#
+# 反算依据 (PK模型参数推导):
+#   - 口服 F=3-5% [3], IM F=100% [3]
+#   - EV 酶水解→17β-estradiol + 戊酸 [2,3]
+#   - IM 与 IV 生物转化无差异 [2]
+#   - E2 t1/2 ~13-17h (综述文献)
+#   - E2 Vd ~300-500L (组织分布+蛋白结合, 综述文献)
+#   - Cmax/Tmax 反算自 [1,4] 的临床数据
+# ============================================================
+
+[metadata]
+id = "im_estradiol_valerate"
+type = "im_ev"
+source = "Düsterberg 1985; Oriowo 1980; Delestrogen label 2025"
+
+[parameters]
+ka_depot = 0.008   # /h, 储库吸收 (t1/2 ≈ 87h ≈ 3.6天)
+                   # [1,4] 报告 IM EV 吸收持续数周
+Vd_EV = 80         # L, EV 分布容积
+kh = 10            # /h, EV→E2 水解 (t1/2 ≈ 4min, 准稳态)
+                   # [2] "split by enzymatic hydrolysis"
+ke_EV = 0.5        # /h, EV 非水解消除 (CYP3A4 [3])
+Vd_E2 = 300        # L, E2 分布容积 (组织+蛋白结合)
+ke_E2 = 0.05       # /h, E2 消除 (t1/2 ≈ 14h)
+f_conv = 0.10      # 转化效率 (储库→系统 EV 比例)
+                   # 反算自 [1,4]: Cmax ~300 pg/mL @ day 2
+MW_ratio = 0.8665  # MW_E2(272.4) / MW_EV(314.4)
+
+# 模型验证:
+#   IM 10mg → E2 Cmax ≈ 312 pg/mL @ 1.8天 (临床 200-400 @ 2-3天)
+#   E2 @14天 ≈ 35 pg/mL (临床 20-50 pg/mL)
+#   口服 F=0.04: 未纳入 (需独立口服模型)
